@@ -1,6 +1,8 @@
 # Standalone Lark Channel
 
-单独启动一个飞书 Channel 的最小示例，不依赖 `agent-gateway` 主程序。
+最小化示例：使用 `channel.New()` 一行启动飞书 Bot。
+
+消息处理、流式卡片回复、会话管理全部由 `channel` 包内部处理，无需手写样板代码。
 
 ## 前置条件
 
@@ -40,9 +42,10 @@ go run .
 
 ## 代码结构
 
-示例展示了如何直接使用 `agent-gateway` 的内部包组装一个完整的飞书 Bot：
+核心只需三步：
 
-- `lark.NewLarkBot` — 创建飞书 Bot，通过 WebSocket 接收消息
-- `agent.NewFactory` — 创建 LLM Agent 工厂
-- `session.NewFileStore` — 文件会话存储
-- `bot.OnMessage` — 注册消息回调，处理命令和 AI 回复
+1. `agent.NewFactory(cfg)` — 创建 LLM Agent 工厂
+2. `session.NewFileStore(dir)` — 文件会话存储
+3. `channel.New(name, bot, factory, store)` — 组装并启动
+
+如果需要自定义 Agent（如绑定 Tool），参考 `examples/lark-tool-agent`。
