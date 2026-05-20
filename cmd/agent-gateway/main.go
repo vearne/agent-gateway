@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"go.uber.org/zap"
 
+	"github.com/vearne/agent-gateway/internal/adapter"
 	"github.com/vearne/agent-gateway/internal/agent"
 	"github.com/vearne/agent-gateway/internal/channel"
 	"github.com/vearne/agent-gateway/internal/config"
@@ -30,33 +32,59 @@ func main() {
 	}
 
 	logger.Info("starting agent-gateway",
-		zap.String("app_id", cfg.Lark.AppID),
-		zap.String("model", cfg.Agent.ModelName),
-		zap.String("session_backend", cfg.Session.Backend))
+		zap.Int("channels", len(cfg.Channels)))
 
-	var store *session.Store
-	switch cfg.Session.Backend {
-	case "redis":
-		store = session.NewRedisStore(cfg.Session.Addr, cfg.Session.Password, cfg.Session.DB)
-	default:
-		store = session.NewFileStore(cfg.Session.Dir)
+	mgr := channel.NewChannelManager()
+
+	for _, chCfg := range cfg.Channels {
+		bot, err := createBot(chCfg)
+		if err != nil {
+			logger.Fatal("create bot failed",
+				zap.String("channel", chCfg.Name),
+				zap.Error(err))
+		}
+
+		agentCfg := chCfg.EffectiveAgent(cfg.Agent)
+		factory := agent.NewFactory(agentCfg)
+
+		sessionCfg := chCfg.EffectiveSession(cfg.Session)
+		store := createStore(sessionCfg)
+
+		ch := channel.New(chCfg.Name, bot, factory, store)
+		mgr.Add(ch)
 	}
-
-	larkClient := lark.NewClient(cfg.Lark.AppID, cfg.Lark.AppSecret)
-	factory := agent.NewFactory(cfg.Agent)
-	ch := channel.New(larkClient, factory, store)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ch.Start(ctx)
+	mgr.Start(ctx)
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
 		logger.Info("shutting down...")
-		ch.Stop()
+		mgr.Stop()
+		cancel()
 	}()
 
 	<-ctx.Done()
 	logger.Info("agent-gateway stopped")
+}
+
+func createBot(chCfg config.ChannelConfig) (adapter.BotAdapter, error) {
+	switch chCfg.Platform {
+	case "lark":
+		return lark.NewLarkBot(chCfg.Lark.AppID, chCfg.Lark.AppSecret), nil
+	default:
+		return nil, fmt.Errorf("unsupported platform: %s", chCfg.Platform)
+	}
+}
+
+func createStore(cfg config.SessionConfig) *session.Store {
+	switch cfg.Backend {
+	case "redis":
+		return session.NewRedisStore(cfg.Addr, cfg.Password, cfg.DB)
+	default:
+		return session.NewFileStore(cfg.Dir)
+	}
 }

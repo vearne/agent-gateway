@@ -1,9 +1,4 @@
 # agent-gateway configuration
-lark:
-  app_id: "your_app_id"
-  app_secret: "your_app_secret"       # or set LARK_APP_SECRET env var
-  public_base_url: ""                 # optional, for generating download links
-
 agent:
   model_name: "gpt-4o"
   api_key: "your_api_key"             # or set AGENT_API_KEY env var
@@ -21,3 +16,16 @@ session:
   # addr: "localhost:6379"
   # password: ""
   # db: 0
+
+channels:
+  - name: "lark-bot"
+    platform: "lark"
+    lark:
+      app_id: "your_app_id"
+      app_secret: "your_app_secret"
+    # optional per-channel overrides:
+    # agent:
+    #   system_prompt: "你是技术支持助手。"
+    # session:
+    #   backend: "redis"
+    #   addr: "localhost:6379"

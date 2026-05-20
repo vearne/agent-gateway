@@ -10,22 +10,24 @@ import (
 	"github.com/vearne/agentscope-go/pkg/message"
 	"go.uber.org/zap"
 
+	"github.com/vearne/agent-gateway/internal/adapter"
 	agFactory "github.com/vearne/agent-gateway/internal/agent"
-	"github.com/vearne/agent-gateway/internal/lark"
 	"github.com/vearne/agent-gateway/internal/session"
 )
 
 type Channel struct {
-	lark    *lark.Client
+	name    string
+	bot     adapter.BotAdapter
 	factory *agFactory.Factory
 	store   *session.Store
 	locks   sync.Map
 	cancel  context.CancelFunc
 }
 
-func New(larkClient *lark.Client, factory *agFactory.Factory, store *session.Store) *Channel {
+func New(name string, bot adapter.BotAdapter, factory *agFactory.Factory, store *session.Store) *Channel {
 	return &Channel{
-		lark:    larkClient,
+		name:    name,
+		bot:     bot,
 		factory: factory,
 		store:   store,
 	}
@@ -34,11 +36,12 @@ func New(larkClient *lark.Client, factory *agFactory.Factory, store *session.Sto
 func (ch *Channel) Start(ctx context.Context) {
 	ctx, ch.cancel = context.WithCancel(ctx)
 
-	ch.lark.OnMessage(ch.handleMessage)
+	ch.bot.OnMessage(ch.handleMessage)
 
 	go func() {
-		if err := ch.lark.Start(ctx); err != nil && ctx.Err() == nil {
-			zap.L().Error("lark client stopped unexpectedly", zap.Error(err))
+		if err := ch.bot.Start(ctx); err != nil && ctx.Err() == nil {
+			zap.L().Error("bot stopped unexpectedly",
+				zap.String("channel", ch.name), zap.Error(err))
 		}
 	}()
 }
@@ -49,68 +52,73 @@ func (ch *Channel) Stop() {
 	}
 }
 
-func (ch *Channel) handleMessage(ctx context.Context, msgID, chatID string, parsed *lark.ParsedMessage) {
-	if parsed.HasText {
-		switch strings.TrimSpace(parsed.Text) {
+func (ch *Channel) handleMessage(ctx context.Context, msg adapter.InboundMessage) {
+	if msg.Text != "" {
+		switch strings.TrimSpace(msg.Text) {
 		case "/new":
-			ch.store.NewSession(ctx, chatID)
-			lark.SendTextReply(ctx, ch.lark.API(), msgID, "✅ 已开启新会话，历史记录已清除。")
+			ch.store.NewSession(ctx, msg.ChatID)
+			ch.bot.SendText(ctx, msg.MsgID, "✅ 已开启新会话，历史记录已清除。")
 			return
 		case "/clear", "/reset":
-			ch.store.ResetSession(ctx, chatID)
-			lark.SendTextReply(ctx, ch.lark.API(), msgID, "🔄 已清空当前会话。")
+			ch.store.ResetSession(ctx, msg.ChatID)
+			ch.bot.SendText(ctx, msg.MsgID, "🔄 已清空当前会话。")
 			return
 		case "/help":
-			lark.SendTextReply(ctx, ch.lark.API(), msgID, "📖 **可用指令**\n/new          开启新会话\n/clear /reset  清空当前会话\n/help         查看此帮助")
+			ch.bot.SendText(ctx, msg.MsgID, "📖 **可用指令**\n/new          开启新会话\n/clear /reset  清空当前会话\n/help         查看此帮助")
 			return
 		}
 	}
 
-	go ch.processReply(ctx, msgID, chatID, parsed)
+	go ch.processReply(ctx, msg)
 }
 
-func (ch *Channel) processReply(ctx context.Context, msgID, chatID string, parsed *lark.ParsedMessage) {
-	mu := ch.getLock(chatID)
+func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage) {
+	mu := ch.getLock(msg.ChatID)
 	mu.Lock()
 	defer mu.Unlock()
 
 	deepAgent := ch.factory.Create()
 
-	if err := ch.store.LoadSession(ctx, chatID, deepAgent.Memory()); err != nil {
+	if err := ch.store.LoadSession(ctx, msg.ChatID, deepAgent.Memory()); err != nil {
 		zap.L().Warn("load session failed, starting fresh",
-			zap.String("chat_id", chatID), zap.Error(err))
+			zap.String("chat_id", msg.ChatID), zap.Error(err))
 	}
 
 	var contentBlocks []message.ContentBlock
-	if parsed.HasText {
-		contentBlocks = append(contentBlocks, message.NewTextBlock(parsed.Text))
+	if msg.Text != "" {
+		contentBlocks = append(contentBlocks, message.NewTextBlock(msg.Text))
 	}
 	if len(contentBlocks) == 0 {
 		contentBlocks = append(contentBlocks, message.NewTextBlock(""))
 	}
 	agentMsg := message.NewMsg("user", contentBlocks, "user")
 
-	larkAPI := ch.lark.API()
-	cardJSON := lark.BuildCard(nil, "⏳ 思考中...", true)
-	if err := lark.SendCardReply(ctx, larkAPI, msgID, cardJSON); err != nil {
-		lark.SendTextReply(ctx, larkAPI, msgID, "❌ 发送卡片失败："+err.Error())
+	// Send initial card — capture cardMsgID for subsequent updates
+	cardMsgID, err := ch.bot.SendCard(ctx, msg.MsgID, adapter.CardContent{
+		Tools:     nil,
+		Text:      "⏳ 思考中...",
+		Streaming: true,
+	})
+	if err != nil {
+		ch.bot.SendText(ctx, msg.MsgID, "❌ 发送卡片失败："+err.Error())
 		return
 	}
 
 	streamCh, err := deepAgent.ReplyStream(ctx, agentMsg)
 
-	if saveErr := ch.store.SaveSession(ctx, chatID, deepAgent.Memory()); saveErr != nil {
+	if saveErr := ch.store.SaveSession(ctx, msg.ChatID, deepAgent.Memory()); saveErr != nil {
 		zap.L().Error("save session failed",
-			zap.String("chat_id", chatID), zap.Error(saveErr))
+			zap.String("chat_id", msg.ChatID), zap.Error(saveErr))
 	}
 
 	if err != nil {
 		zap.L().Error("agent reply stream failed",
-			zap.String("chat_id", chatID),
-			zap.String("msg_id", msgID),
+			zap.String("chat_id", msg.ChatID),
+			zap.String("msg_id", msg.MsgID),
 			zap.Error(err))
-		errorCard := lark.BuildCard(nil, "❌ 回复失败："+err.Error(), false)
-		lark.UpdateCard(ctx, larkAPI, msgID, errorCard)
+		ch.bot.UpdateCard(ctx, cardMsgID, adapter.CardContent{
+			Text: "❌ 回复失败：" + err.Error(),
+		})
 		return
 	}
 
@@ -123,21 +131,22 @@ func (ch *Channel) processReply(ctx context.Context, msgID, chatID string, parse
 			continue
 		}
 		lastUpdate = time.Now()
-		text := streamMsg.GetTextContent()
 		tools := extractToolEntries(streamMsg)
-		cardJSON := lark.BuildCard(tools, text, true)
-		if updateErr := lark.UpdateCard(ctx, larkAPI, msgID, cardJSON); updateErr != nil {
+		card := adapter.CardContent{Tools: tools, Text: streamMsg.GetTextContent(), Streaming: true}
+		if updateErr := ch.bot.UpdateCard(ctx, cardMsgID, card); updateErr != nil {
 			zap.L().Warn("update card during stream failed",
-				zap.String("msg_id", msgID), zap.Error(updateErr))
+				zap.String("msg_id", cardMsgID), zap.Error(updateErr))
 		}
 	}
 
 	// Final card update: remove streaming cursor
 	if finalResp != nil {
-		text := finalResp.GetTextContent()
 		tools := extractToolEntries(finalResp)
-		finalCard := lark.BuildCard(tools, text, false)
-		lark.UpdateCard(ctx, larkAPI, msgID, finalCard)
+		ch.bot.UpdateCard(ctx, cardMsgID, adapter.CardContent{
+			Tools:     tools,
+			Text:      finalResp.GetTextContent(),
+			Streaming: false,
+		})
 	}
 }
 
@@ -146,11 +155,11 @@ func (ch *Channel) getLock(chatID string) *sync.Mutex {
 	return v.(*sync.Mutex)
 }
 
-func extractToolEntries(msg *message.Msg) []lark.ToolEntry {
+func extractToolEntries(msg *message.Msg) []adapter.ToolEntry {
 	if msg == nil {
 		return nil
 	}
-	var entries []lark.ToolEntry
+	var entries []adapter.ToolEntry
 	for _, block := range msg.Content {
 		if message.IsToolUseBlock(block) {
 			name := message.GetBlockToolUseName(block)
@@ -161,7 +170,7 @@ func extractToolEntries(msg *message.Msg) []lark.ToolEntry {
 					args = string(bs)
 				}
 			}
-			entries = append(entries, lark.ToolEntry{
+			entries = append(entries, adapter.ToolEntry{
 				Name: name,
 				Args: args,
 			})
