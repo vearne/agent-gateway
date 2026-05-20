@@ -163,6 +163,11 @@ func SendTextReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, text 
 }
 
 func SendCardReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, cardJSON string) error {
+	_, err := sendCardReply(ctx, larkAPI, parentMsgID, cardJSON)
+	return err
+}
+
+func sendCardReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, cardJSON string) (string, error) {
 	req := larkim.NewReplyMessageReqBuilder().
 		MessageId(parentMsgID).
 		Body(larkim.NewReplyMessageReqBodyBuilder().
@@ -173,12 +178,15 @@ func SendCardReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, cardJ
 
 	resp, err := larkAPI.Im.V1.Message.Reply(ctx, req)
 	if err != nil {
-		return fmt.Errorf("reply card: %w", err)
+		return "", fmt.Errorf("reply card: %w", err)
 	}
 	if !resp.Success() {
-		return fmt.Errorf("reply card failed: code=%d, msg=%s", resp.Code, resp.Msg)
+		return "", fmt.Errorf("reply card failed: code=%d, msg=%s", resp.Code, resp.Msg)
 	}
-	return nil
+	if resp.Data != nil && resp.Data.MessageId != nil {
+		return *resp.Data.MessageId, nil
+	}
+	return "", nil
 }
 
 func UpdateCard(ctx context.Context, larkAPI *lark.Client, messageID, cardJSON string) error {

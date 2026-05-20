@@ -7,16 +7,16 @@ import (
 
 const dedupTTL = 600 // seconds
 
-type msgDedup struct {
+type MsgDedup struct {
 	mu   sync.Mutex
 	seen map[string]int64
 }
 
-func newMsgDedup() *msgDedup {
-	return &msgDedup{seen: make(map[string]int64)}
+func NewMsgDedup() *MsgDedup {
+	return &MsgDedup{seen: make(map[string]int64)}
 }
 
-func (d *msgDedup) tryAdd(msgID string) bool {
+func (d *MsgDedup) TryAdd(msgID string) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -40,4 +40,4 @@ func (d *msgDedup) tryAdd(msgID string) bool {
 	return true
 }
 
-var globalDedup = newMsgDedup()
+var globalDedup = NewMsgDedup()
