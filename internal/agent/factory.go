@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"github.com/vearne/agent-gateway/internal/adapter"
+
 	"github.com/vearne/agent-gateway/internal/config"
 
 	agentscope "github.com/vearne/agentscope-go/pkg/agent"
@@ -17,7 +19,7 @@ func NewFactory(cfg config.AgentConfig) *Factory {
 	return &Factory{cfg: cfg}
 }
 
-func (f *Factory) Create() *agentscope.DeepAgent {
+func (f *Factory) Create() adapter.Agent {
 	m := model.NewOpenAIChatModel(f.cfg.ModelName, f.cfg.APIKey, f.cfg.BaseURL, true)
 	fmt := formatter.NewOpenAIChatFormatter()
 	mem := memory.NewInMemoryMemory()

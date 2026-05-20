@@ -11,20 +11,18 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/vearne/agent-gateway/internal/adapter"
-	agFactory "github.com/vearne/agent-gateway/internal/agent"
-	"github.com/vearne/agent-gateway/internal/session"
 )
 
 type Channel struct {
 	name    string
 	bot     adapter.BotAdapter
-	factory *agFactory.Factory
-	store   *session.Store
+	factory adapter.AgentFactory
+	store   adapter.SessionStore
 	locks   sync.Map
 	cancel  context.CancelFunc
 }
 
-func New(name string, bot adapter.BotAdapter, factory *agFactory.Factory, store *session.Store) *Channel {
+func New(name string, bot adapter.BotAdapter, factory adapter.AgentFactory, store adapter.SessionStore) *Channel {
 	return &Channel{
 		name:    name,
 		bot:     bot,
