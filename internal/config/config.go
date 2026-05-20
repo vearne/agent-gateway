@@ -9,9 +9,18 @@ import (
 )
 
 type Config struct {
-	Lark    LarkConfig    `yaml:"lark"`
-	Agent   AgentConfig   `yaml:"agent"`
-	Session SessionConfig `yaml:"session"`
+	Agent    AgentConfig     `yaml:"agent"`
+	Channels []ChannelConfig `yaml:"channels"`
+	Session  SessionConfig   `yaml:"session"`
+}
+
+type ChannelConfig struct {
+	Name     string         `yaml:"name"`
+	Platform string         `yaml:"platform"`
+	Lark     *LarkConfig    `yaml:"lark,omitempty"`
+
+	Agent   *AgentConfig   `yaml:"agent,omitempty"`
+	Session *SessionConfig `yaml:"session,omitempty"`
 }
 
 type LarkConfig struct {
@@ -50,7 +59,82 @@ func Load(path string) (*Config, error) {
 
 	cfg.applyDefaults()
 	cfg.applyEnvOverrides()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+func (c *Config) Validate() error {
+	if len(c.Channels) == 0 {
+		return fmt.Errorf("config: at least one channel required")
+	}
+	for i, ch := range c.Channels {
+		if ch.Platform == "" {
+			return fmt.Errorf("config: channel[%d] missing platform", i)
+		}
+		switch ch.Platform {
+		case "lark":
+			if ch.Lark == nil {
+				return fmt.Errorf("config: channel[%d] (%s) missing lark config", i, ch.Name)
+			}
+		default:
+			return fmt.Errorf("config: channel[%d] (%s) unsupported platform: %s", i, ch.Name, ch.Platform)
+		}
+	}
+	return nil
+}
+
+// EffectiveAgent returns the agent config for this channel,
+// merging global defaults with per-channel overrides.
+func (ch *ChannelConfig) EffectiveAgent(global AgentConfig) AgentConfig {
+	if ch.Agent == nil {
+		return global
+	}
+	merged := global
+	if ch.Agent.ModelName != "" {
+		merged.ModelName = ch.Agent.ModelName
+	}
+	if ch.Agent.APIKey != "" {
+		merged.APIKey = ch.Agent.APIKey
+	}
+	if ch.Agent.BaseURL != "" {
+		merged.BaseURL = ch.Agent.BaseURL
+	}
+	if ch.Agent.SystemPrompt != "" {
+		merged.SystemPrompt = ch.Agent.SystemPrompt
+	}
+	if ch.Agent.MaxIters != 0 {
+		merged.MaxIters = ch.Agent.MaxIters
+	}
+	if ch.Agent.MaxContextTokens != 0 {
+		merged.MaxContextTokens = ch.Agent.MaxContextTokens
+	}
+	return merged
+}
+
+// EffectiveSession returns the session config for this channel,
+// merging global defaults with per-channel overrides.
+func (ch *ChannelConfig) EffectiveSession(global SessionConfig) SessionConfig {
+	if ch.Session == nil {
+		return global
+	}
+	merged := global
+	if ch.Session.Backend != "" {
+		merged.Backend = ch.Session.Backend
+	}
+	if ch.Session.Dir != "" {
+		merged.Dir = ch.Session.Dir
+	}
+	if ch.Session.Addr != "" {
+		merged.Addr = ch.Session.Addr
+	}
+	if ch.Session.Password != "" {
+		merged.Password = ch.Session.Password
+	}
+	// DB = 0 is a valid default; always override if session block exists.
+	merged.DB = ch.Session.DB
+	return merged
 }
 
 func (c *Config) applyDefaults() {
@@ -63,12 +147,6 @@ func (c *Config) applyDefaults() {
 }
 
 func (c *Config) applyEnvOverrides() {
-	if v := os.Getenv("LARK_APP_ID"); v != "" {
-		c.Lark.AppID = v
-	}
-	if v := os.Getenv("LARK_APP_SECRET"); v != "" {
-		c.Lark.AppSecret = v
-	}
 	if v := os.Getenv("AGENT_API_KEY"); v != "" {
 		c.Agent.APIKey = v
 	}
