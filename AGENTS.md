@@ -15,6 +15,10 @@ go build ./cmd/agent-gateway
 
 # Run examples
 go run ./examples/standalone-lark-channel
+go run ./examples/standalone-telegram-channel
+go run ./examples/standalone-discord-channel
+go run ./examples/standalone-slack-channel
+go run ./examples/standalone-whatsapp-channel
 go run ./examples/lark-tool-agent
 ```
 
