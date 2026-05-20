@@ -8,6 +8,7 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
+	"go.uber.org/zap"
 
 	"github.com/vearne/agent-gateway/internal/adapter"
 )
@@ -42,7 +43,11 @@ func (s *SlackBot) Start(ctx context.Context) error {
 	}
 	s.botID = resp.UserID
 
-	go s.client.RunContext(innerCtx)
+	go func() {
+		if err := s.client.RunContext(innerCtx); err != nil && innerCtx.Err() == nil {
+			zap.L().Error("slack socket mode stopped", zap.Error(err))
+		}
+	}()
 
 	go func() {
 		for {
@@ -113,7 +118,9 @@ func (s *SlackBot) handleEvent(ctx context.Context, evt socketmode.Event) {
 		return
 	}
 
-	s.client.Ack(*evt.Request)
+	if err := s.client.Ack(*evt.Request); err != nil {
+		zap.L().Warn("slack event ack failed", zap.Error(err))
+	}
 
 	switch ev := eventsAPIEvent.InnerEvent.Data.(type) {
 	case *slackevents.MessageEvent:

@@ -11,7 +11,7 @@ import (
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
-	waE2E "go.mau.fi/whatsmeow/binary/proto"
+	waE2E "go.mau.fi/whatsmeow/proto/waE2E"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
@@ -68,8 +68,8 @@ func (b *WhatsAppBot) Start(ctx context.Context) error {
 				break
 			}
 		}
-	} else {
-		b.client.Connect()
+	} else if err := b.client.Connect(); err != nil {
+		return fmt.Errorf("whatsapp: connect: %w", err)
 	}
 
 	<-ctx.Done()

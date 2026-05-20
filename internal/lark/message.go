@@ -108,7 +108,7 @@ func GetImageURL(ctx context.Context, larkAPI *lark.Client, messageID, imageKey 
 		ImageKey(imageKey).
 		Build()
 
-	resp, err := larkAPI.Im.V1.Image.Get(ctx, req)
+	resp, err := larkAPI.Im.Image.Get(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("get image %s: %w", imageKey, err)
 	}

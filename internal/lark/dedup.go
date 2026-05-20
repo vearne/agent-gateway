@@ -39,5 +39,3 @@ func (d *MsgDedup) TryAdd(msgID string) bool {
 
 	return true
 }
-
-var globalDedup = NewMsgDedup()

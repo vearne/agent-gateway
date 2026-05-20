@@ -152,7 +152,7 @@ func SendTextReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, text 
 			Build()).
 		Build()
 
-	resp, err := larkAPI.Im.V1.Message.Reply(ctx, req)
+	resp, err := larkAPI.Im.Message.Reply(ctx, req)
 	if err != nil {
 		return fmt.Errorf("reply message: %w", err)
 	}
@@ -176,7 +176,7 @@ func sendCardReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, cardJ
 			Build()).
 		Build()
 
-	resp, err := larkAPI.Im.V1.Message.Reply(ctx, req)
+	resp, err := larkAPI.Im.Message.Reply(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("reply card: %w", err)
 	}
@@ -197,7 +197,7 @@ func UpdateCard(ctx context.Context, larkAPI *lark.Client, messageID, cardJSON s
 			Build()).
 		Build()
 
-	resp, err := larkAPI.Im.V1.Message.Update(ctx, req)
+	resp, err := larkAPI.Im.Message.Update(ctx, req)
 	if err != nil {
 		return fmt.Errorf("update card: %w", err)
 	}
@@ -217,7 +217,7 @@ func CreateMessage(ctx context.Context, larkAPI *lark.Client, receiveID, receive
 			Build()).
 		Build()
 
-	resp, err := larkAPI.Im.V1.Message.Create(ctx, req)
+	resp, err := larkAPI.Im.Message.Create(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("create message: %w", err)
 	}

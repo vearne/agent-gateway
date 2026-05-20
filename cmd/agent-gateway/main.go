@@ -27,7 +27,7 @@ func main() {
 	flag.Parse()
 
 	logger, _ := zap.NewProduction()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 	zap.ReplaceGlobals(logger)
 
 	cfg, err := config.Load(*configPath)
