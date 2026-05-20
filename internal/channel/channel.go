@@ -55,14 +55,20 @@ func (ch *Channel) handleMessage(ctx context.Context, msg adapter.InboundMessage
 		switch strings.TrimSpace(msg.Text) {
 		case "/new":
 			ch.store.NewSession(ctx, msg.ChatID)
-			ch.bot.SendText(ctx, msg.MsgID, "✅ 已开启新会话，历史记录已清除。")
+			if err := ch.bot.SendText(ctx, msg.MsgID, "✅ 已开启新会话，历史记录已清除。"); err != nil {
+				zap.L().Warn("send command reply failed", zap.String("command", "/new"), zap.Error(err))
+			}
 			return
 		case "/clear", "/reset":
 			ch.store.ResetSession(ctx, msg.ChatID)
-			ch.bot.SendText(ctx, msg.MsgID, "🔄 已清空当前会话。")
+			if err := ch.bot.SendText(ctx, msg.MsgID, "🔄 已清空当前会话。"); err != nil {
+				zap.L().Warn("send command reply failed", zap.String("command", "/clear"), zap.Error(err))
+			}
 			return
 		case "/help":
-			ch.bot.SendText(ctx, msg.MsgID, "📖 **可用指令**\n/new          开启新会话\n/clear /reset  清空当前会话\n/help         查看此帮助")
+			if err := ch.bot.SendText(ctx, msg.MsgID, "📖 **可用指令**\n/new          开启新会话\n/clear /reset  清空当前会话\n/help         查看此帮助"); err != nil {
+				zap.L().Warn("send command reply failed", zap.String("command", "/help"), zap.Error(err))
+			}
 			return
 		}
 	}
@@ -102,7 +108,9 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 		Streaming: true,
 	})
 	if err != nil {
-		ch.bot.SendText(ctx, msg.MsgID, "❌ 发送卡片失败："+err.Error())
+		if sendErr := ch.bot.SendText(ctx, msg.MsgID, "❌ 发送卡片失败："+err.Error()); sendErr != nil {
+			zap.L().Warn("send card failure notice failed", zap.Error(sendErr))
+		}
 		return
 	}
 
@@ -112,9 +120,12 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 			zap.String("chat_id", msg.ChatID),
 			zap.String("msg_id", msg.MsgID),
 			zap.Error(err))
-		ch.bot.UpdateCard(ctx, cardMsgID, adapter.CardContent{
+		if updateErr := ch.bot.UpdateCard(ctx, cardMsgID, adapter.CardContent{
 			Text: "❌ 回复失败：" + err.Error(),
-		})
+		}); updateErr != nil {
+			zap.L().Warn("update card after stream error failed",
+				zap.String("msg_id", cardMsgID), zap.Error(updateErr))
+		}
 		return
 	}
 
@@ -138,11 +149,14 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 	// Final card update: remove streaming cursor
 	if finalResp != nil {
 		tools := extractToolEntries(finalResp)
-		ch.bot.UpdateCard(ctx, cardMsgID, adapter.CardContent{
+		if updateErr := ch.bot.UpdateCard(ctx, cardMsgID, adapter.CardContent{
 			Tools:     tools,
 			Text:      finalResp.GetTextContent(),
 			Streaming: false,
-		})
+		}); updateErr != nil {
+			zap.L().Warn("final card update failed",
+				zap.String("msg_id", cardMsgID), zap.Error(updateErr))
+		}
 	}
 
 	// Save after the stream completes so assistant/tool messages are in memory.
