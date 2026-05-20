@@ -14,8 +14,12 @@ import (
 	"github.com/vearne/agent-gateway/internal/agent"
 	"github.com/vearne/agent-gateway/internal/channel"
 	"github.com/vearne/agent-gateway/internal/config"
+	"github.com/vearne/agent-gateway/internal/discord"
 	"github.com/vearne/agent-gateway/internal/lark"
 	"github.com/vearne/agent-gateway/internal/session"
+	"github.com/vearne/agent-gateway/internal/slack"
+	"github.com/vearne/agent-gateway/internal/telegram"
+	"github.com/vearne/agent-gateway/internal/whatsapp"
 )
 
 func main() {
@@ -75,6 +79,18 @@ func createBot(chCfg config.ChannelConfig) (adapter.BotAdapter, error) {
 	switch chCfg.Platform {
 	case "lark":
 		return lark.NewLarkBot(chCfg.Lark.AppID, chCfg.Lark.AppSecret), nil
+	case "telegram":
+		return telegram.NewTelegramBot(chCfg.Telegram.Token), nil
+	case "discord":
+		return discord.NewDiscordBot(chCfg.Discord.Token), nil
+	case "slack":
+		return slack.NewSlackBot(chCfg.Slack.BotToken, chCfg.Slack.AppToken), nil
+	case "whatsapp":
+		dataDir := "./whatsapp-data"
+		if chCfg.WhatsApp != nil && chCfg.WhatsApp.DataDir != "" {
+			dataDir = chCfg.WhatsApp.DataDir
+		}
+		return whatsapp.NewWhatsAppBot(dataDir), nil
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", chCfg.Platform)
 	}

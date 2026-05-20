@@ -15,9 +15,13 @@ type Config struct {
 }
 
 type ChannelConfig struct {
-	Name     string         `yaml:"name"`
-	Platform string         `yaml:"platform"`
-	Lark     *LarkConfig    `yaml:"lark,omitempty"`
+	Name     string          `yaml:"name"`
+	Platform string          `yaml:"platform"`
+	Lark     *LarkConfig     `yaml:"lark,omitempty"`
+	Telegram *TelegramConfig `yaml:"telegram,omitempty"`
+	Discord  *DiscordConfig  `yaml:"discord,omitempty"`
+	Slack    *SlackConfig    `yaml:"slack,omitempty"`
+	WhatsApp *WhatsAppConfig `yaml:"whatsapp,omitempty"`
 
 	Agent   *AgentConfig   `yaml:"agent,omitempty"`
 	Session *SessionConfig `yaml:"session,omitempty"`
@@ -27,6 +31,24 @@ type LarkConfig struct {
 	AppID         string `yaml:"app_id"`
 	AppSecret     string `yaml:"app_secret"`
 	PublicBaseURL string `yaml:"public_base_url"`
+}
+
+type TelegramConfig struct {
+	Token string `yaml:"token"`
+}
+
+type DiscordConfig struct {
+	Token         string `yaml:"token"`
+	ApplicationID string `yaml:"application_id"`
+}
+
+type SlackConfig struct {
+	BotToken string `yaml:"bot_token"`
+	AppToken string `yaml:"app_token"`
+}
+
+type WhatsAppConfig struct {
+	DataDir string `yaml:"data_dir"`
 }
 
 type AgentConfig struct {
@@ -78,6 +100,20 @@ func (c *Config) Validate() error {
 			if ch.Lark == nil {
 				return fmt.Errorf("config: channel[%d] (%s) missing lark config", i, ch.Name)
 			}
+		case "telegram":
+			if ch.Telegram == nil || ch.Telegram.Token == "" {
+				return fmt.Errorf("config: channel[%d] (%s) missing telegram.token", i, ch.Name)
+			}
+		case "discord":
+			if ch.Discord == nil || ch.Discord.Token == "" {
+				return fmt.Errorf("config: channel[%d] (%s) missing discord.token", i, ch.Name)
+			}
+		case "slack":
+			if ch.Slack == nil || ch.Slack.BotToken == "" {
+				return fmt.Errorf("config: channel[%d] (%s) missing slack.bot_token", i, ch.Name)
+			}
+		case "whatsapp":
+			// WhatsApp config is optional — whatsmeow uses data_dir for session persistence
 		default:
 			return fmt.Errorf("config: channel[%d] (%s) unsupported platform: %s", i, ch.Name, ch.Platform)
 		}

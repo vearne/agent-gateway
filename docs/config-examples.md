@@ -124,7 +124,7 @@ session:
   # db: 0
 
 # Channels — each entry is one bot instance
-# Supported platforms: lark (dingtalk, telegram, discord coming soon)
+# Supported platforms: lark, telegram, discord, slack, whatsapp
 channels:
   - name: "lark-bot"                  # Required. Human-readable channel name.
     platform: "lark"                  # Required. Platform identifier.
@@ -150,23 +150,31 @@ channels:
     #   password: "redis_password"
     #   db: 1
 
-  # Future platforms (not yet implemented):
-  # - name: "dingtalk-bot"
-  #   platform: "dingtalk"
-  #   dingtalk:
-  #     client_id: "..."
-  #     client_secret: "..."
-
+  # --- Telegram ---
   # - name: "telegram-bot"
   #   platform: "telegram"
   #   telegram:
-  #     bot_token: "..."
+  #     token: "123456:ABC-DEF..."      # BotFather token
 
+  # --- Discord ---
   # - name: "discord-bot"
   #   platform: "discord"
   #   discord:
-  #     bot_token: "..."
-  #     application_id: "..."
+  #     token: "your_discord_bot_token"
+  #     application_id: "your_app_id"
+
+  # --- Slack ---
+  # - name: "slack-bot"
+  #   platform: "slack"
+  #   slack:
+  #     bot_token: "xoxb-..."           # Bot User OAuth Token
+  #     app_token: "xapp-..."           # App-Level Token (for Socket Mode)
+
+  # --- WhatsApp (via whatsmeow, requires QR scan on first run) ---
+  # - name: "whatsapp-bot"
+  #   platform: "whatsapp"
+  #   whatsapp:
+  #     data_dir: "./whatsapp-data"     # Session storage directory
 
 # Environment variable overrides (apply to global config only):
 # AGENT_API_KEY       → agent.api_key
