@@ -47,13 +47,14 @@ func main() {
 	ch := channel.New(larkClient, factory, store)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	ch.Start(ctx)
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
 		logger.Info("shutting down...")
-		cancel()
+		ch.Stop()
 	}()
 
 	<-ctx.Done()

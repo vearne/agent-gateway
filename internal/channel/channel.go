@@ -20,6 +20,7 @@ type Channel struct {
 	factory *agFactory.Factory
 	store   *session.Store
 	locks   sync.Map
+	cancel  context.CancelFunc
 }
 
 func New(larkClient *lark.Client, factory *agFactory.Factory, store *session.Store) *Channel {
@@ -31,6 +32,8 @@ func New(larkClient *lark.Client, factory *agFactory.Factory, store *session.Sto
 }
 
 func (ch *Channel) Start(ctx context.Context) {
+	ctx, ch.cancel = context.WithCancel(ctx)
+
 	ch.lark.OnMessage(ch.handleMessage)
 
 	go func() {
@@ -38,6 +41,12 @@ func (ch *Channel) Start(ctx context.Context) {
 			zap.L().Error("lark client stopped unexpectedly", zap.Error(err))
 		}
 	}()
+}
+
+func (ch *Channel) Stop() {
+	if ch.cancel != nil {
+		ch.cancel()
+	}
 }
 
 func (ch *Channel) handleMessage(ctx context.Context, msgID, chatID string, parsed *lark.ParsedMessage) {
