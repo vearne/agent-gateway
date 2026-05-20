@@ -1,0 +1,23 @@
+# agent-gateway configuration
+lark:
+  app_id: "your_app_id"
+  app_secret: "your_app_secret"       # or set LARK_APP_SECRET env var
+  public_base_url: ""                 # optional, for generating download links
+
+agent:
+  model_name: "gpt-4o"
+  api_key: "your_api_key"             # or set AGENT_API_KEY env var
+  base_url: ""                        # optional, default: OpenAI official
+  system_prompt: "You are a helpful assistant."
+  max_iters: 20
+  # max_context_tokens: 128000       # optional, default: 128000
+
+session:
+  # backend: "file" or "redis"
+  backend: "file"
+  # file backend
+  dir: "./sessions"
+  # redis backend
+  # addr: "localhost:6379"
+  # password: ""
+  # db: 0
