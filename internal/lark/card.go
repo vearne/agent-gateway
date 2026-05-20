@@ -24,8 +24,8 @@ type richCard struct {
 }
 
 type cardConfig struct {
-	WideScreenMode bool        `json:"wide_screen_mode"`
-	StreamingMode  bool        `json:"streaming_mode,omitempty"`
+	WideScreenMode bool         `json:"wide_screen_mode"`
+	StreamingMode  bool         `json:"streaming_mode,omitempty"`
 	Summary        *cardSummary `json:"summary,omitempty"`
 }
 
@@ -47,9 +47,9 @@ type cardElement struct {
 }
 
 type panelHeader struct {
-	Tag     string       `json:"tag"`
+	Tag      string      `json:"tag"`
 	Template string      `json:"template,omitempty"`
-	Title   *panelTitle  `json:"title"`
+	Title    *panelTitle `json:"title"`
 }
 
 type panelTitle struct {

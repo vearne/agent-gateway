@@ -54,10 +54,10 @@ func ParseMessage(msg *larkim.EventMessage) (*ParsedMessage, bool) {
 
 	case "post":
 		var body struct {
-			Title string `json:"title"`
+			Title   string `json:"title"`
 			Content [][]struct {
-				Tag     string `json:"tag"`
-				Text    string `json:"text"`
+				Tag      string `json:"tag"`
+				Text     string `json:"text"`
 				ImageKey string `json:"image_key"`
 			} `json:"content"`
 		}

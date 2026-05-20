@@ -8,8 +8,8 @@ import (
 const dedupTTL = 600 // seconds
 
 type msgDedup struct {
-	mu    sync.Mutex
-	seen  map[string]int64
+	mu   sync.Mutex
+	seen map[string]int64
 }
 
 func newMsgDedup() *msgDedup {

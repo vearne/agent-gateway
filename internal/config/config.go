@@ -9,8 +9,8 @@ import (
 )
 
 type Config struct {
-	Lark   LarkConfig   `yaml:"lark"`
-	Agent  AgentConfig  `yaml:"agent"`
+	Lark    LarkConfig    `yaml:"lark"`
+	Agent   AgentConfig   `yaml:"agent"`
 	Session SessionConfig `yaml:"session"`
 }
 
@@ -21,12 +21,12 @@ type LarkConfig struct {
 }
 
 type AgentConfig struct {
-	ModelName       string `yaml:"model_name"`
-	APIKey          string `yaml:"api_key"`
-	BaseURL         string `yaml:"base_url"`
-	SystemPrompt    string `yaml:"system_prompt"`
-	MaxIters        int    `yaml:"max_iters"`
-	MaxContextTokens int   `yaml:"max_context_tokens"`
+	ModelName        string `yaml:"model_name"`
+	APIKey           string `yaml:"api_key"`
+	BaseURL          string `yaml:"base_url"`
+	SystemPrompt     string `yaml:"system_prompt"`
+	MaxIters         int    `yaml:"max_iters"`
+	MaxContextTokens int    `yaml:"max_context_tokens"`
 }
 
 type SessionConfig struct {
