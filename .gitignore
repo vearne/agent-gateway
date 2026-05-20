@@ -32,3 +32,4 @@ go.work.sum
 .vscode/
 
 .sisyphus/
+graphify-out/

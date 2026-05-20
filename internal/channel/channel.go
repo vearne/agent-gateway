@@ -71,6 +71,10 @@ func (ch *Channel) handleMessage(ctx context.Context, msg adapter.InboundMessage
 }
 
 func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage) {
+	// Detach from the bot callback ctx so a short-lived event context does not
+	// cancel the agent stream or session save mid-reply.
+	ctx = context.WithoutCancel(ctx)
+
 	mu := ch.getLock(msg.ChatID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -103,12 +107,6 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 	}
 
 	streamCh, err := deepAgent.ReplyStream(ctx, agentMsg)
-
-	if saveErr := ch.store.SaveSession(ctx, msg.ChatID, deepAgent.Memory()); saveErr != nil {
-		zap.L().Error("save session failed",
-			zap.String("chat_id", msg.ChatID), zap.Error(saveErr))
-	}
-
 	if err != nil {
 		zap.L().Error("agent reply stream failed",
 			zap.String("chat_id", msg.ChatID),
@@ -145,6 +143,12 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 			Text:      finalResp.GetTextContent(),
 			Streaming: false,
 		})
+	}
+
+	// Save after the stream completes so assistant/tool messages are in memory.
+	if saveErr := ch.store.SaveSession(ctx, msg.ChatID, deepAgent.Memory()); saveErr != nil {
+		zap.L().Error("save session failed",
+			zap.String("chat_id", msg.ChatID), zap.Error(saveErr))
 	}
 }
 
