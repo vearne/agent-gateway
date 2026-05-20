@@ -18,7 +18,7 @@ func NewFactory(cfg config.AgentConfig) *Factory {
 }
 
 func (f *Factory) Create() *agentscope.DeepAgent {
-	m := model.NewOpenAIChatModel(f.cfg.ModelName, f.cfg.APIKey, f.cfg.BaseURL, false)
+	m := model.NewOpenAIChatModel(f.cfg.ModelName, f.cfg.APIKey, f.cfg.BaseURL, true)
 	fmt := formatter.NewOpenAIChatFormatter()
 	mem := memory.NewInMemoryMemory()
 

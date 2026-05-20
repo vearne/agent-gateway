@@ -45,8 +45,8 @@ github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0t
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/vearne/agentscope-go v0.0.7 h1:A86GG1dUMKvi1LHgudebY+6YQQRDBbWK7aQleUJqvjM=
-github.com/vearne/agentscope-go v0.0.7/go.mod h1:FmRkW7KQ3yL/dMnx/1eaqqKi2vdJrEroDP7QeQyxNxs=
+github.com/vearne/agentscope-go v0.0.8 h1:G7PccnueHBXCC2oxDS41Wf9tCLT0om1XI6biwySYhNE=
+github.com/vearne/agentscope-go v0.0.8/go.mod h1:FmRkW7KQ3yL/dMnx/1eaqqKi2vdJrEroDP7QeQyxNxs=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/zeebo/xxh3 v1.0.2 h1:xZmwmqxHZA8AI603jOQ0tMqmBr9lPeFwGg6d+xy9DC0=
