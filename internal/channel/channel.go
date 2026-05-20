@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/vearne/agentscope-go/pkg/message"
 	"go.uber.org/zap"
@@ -87,7 +88,7 @@ func (ch *Channel) processReply(ctx context.Context, msgID, chatID string, parse
 		return
 	}
 
-	resp, err := deepAgent.Reply(ctx, agentMsg)
+	streamCh, err := deepAgent.ReplyStream(ctx, agentMsg)
 
 	if saveErr := ch.store.SaveSession(ctx, chatID, deepAgent.Memory()); saveErr != nil {
 		zap.L().Error("save session failed",
@@ -95,7 +96,7 @@ func (ch *Channel) processReply(ctx context.Context, msgID, chatID string, parse
 	}
 
 	if err != nil {
-		zap.L().Error("agent reply failed",
+		zap.L().Error("agent reply stream failed",
 			zap.String("chat_id", chatID),
 			zap.String("msg_id", msgID),
 			zap.Error(err))
@@ -104,10 +105,31 @@ func (ch *Channel) processReply(ctx context.Context, msgID, chatID string, parse
 		return
 	}
 
-	text := resp.GetTextContent()
-	tools := extractToolEntries(resp)
-	finalCard := lark.BuildCard(tools, text, false)
-	lark.UpdateCard(ctx, larkAPI, msgID, finalCard)
+	var lastUpdate time.Time
+	var finalResp *message.Msg
+
+	for streamMsg := range streamCh {
+		finalResp = streamMsg
+		if time.Since(lastUpdate) < 500*time.Millisecond {
+			continue
+		}
+		lastUpdate = time.Now()
+		text := streamMsg.GetTextContent()
+		tools := extractToolEntries(streamMsg)
+		cardJSON := lark.BuildCard(tools, text, true)
+		if updateErr := lark.UpdateCard(ctx, larkAPI, msgID, cardJSON); updateErr != nil {
+			zap.L().Warn("update card during stream failed",
+				zap.String("msg_id", msgID), zap.Error(updateErr))
+		}
+	}
+
+	// Final card update: remove streaming cursor
+	if finalResp != nil {
+		text := finalResp.GetTextContent()
+		tools := extractToolEntries(finalResp)
+		finalCard := lark.BuildCard(tools, text, false)
+		lark.UpdateCard(ctx, larkAPI, msgID, finalCard)
+	}
 }
 
 func (ch *Channel) getLock(chatID string) *sync.Mutex {
