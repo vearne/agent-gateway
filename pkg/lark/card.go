@@ -37,9 +37,31 @@ type cardBody struct {
 	Elements []cardElement `json:"elements"`
 }
 
-type cardElement struct {
+type cardText struct {
 	Tag     string `json:"tag"`
+	Content string `json:"content"`
+}
+
+type panelHeader struct {
+	Title cardText `json:"title"`
+}
+
+type cardElement struct {
+	Tag string `json:"tag"`
+
+	// markdown
 	Content string `json:"content,omitempty"`
+
+	// collapsible_panel
+	Expanded *bool         `json:"expanded,omitempty"`
+	Header   *panelHeader  `json:"header,omitempty"`
+	Elements []cardElement `json:"elements,omitempty"`
+}
+
+func boolPtr(b bool) *bool { return &b }
+
+func mdElement(content string) cardElement {
+	return cardElement{Tag: "markdown", Content: content}
 }
 
 func truncate(s string, maxLen int) string {
@@ -49,58 +71,102 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
-func thinkingMarkdown(thinking string) cardElement {
+func thinkingPanel(thinking string, expanded bool) cardElement {
 	display := truncate(SanitizeCardContent(thinking), 3000)
 	return cardElement{
-		Tag:     "markdown",
-		Content: "**🧠 思考过程**\n\n" + display,
+		Tag:      "collapsible_panel",
+		Expanded: boolPtr(expanded),
+		Header: &panelHeader{
+			Title: cardText{Tag: "plain_text", Content: "🧠 思考过程"},
+		},
+		Elements: []cardElement{mdElement(display)},
 	}
 }
 
-func toolElements(tools []ToolEntry) []cardElement {
-	elems := make([]cardElement, 0, len(tools))
-	for _, t := range tools {
-		statusIcon := "⏳"
-		statusText := "执行中"
-		if t.Done {
-			statusIcon = "✅"
-			statusText = "已完成"
+func toolsPanel(tools []ToolEntry, streaming bool) cardElement {
+	return cardElement{
+		Tag:      "collapsible_panel",
+		Expanded: boolPtr(streaming),
+		Header: &panelHeader{
+			Title: cardText{Tag: "plain_text", Content: fmt.Sprintf("⚙️ 工具调用（%d）", len(tools))},
+		},
+		Elements: []cardElement{mdElement(buildToolTrace(tools))},
+	}
+}
+
+func buildToolTrace(tools []ToolEntry) string {
+	var sb strings.Builder
+	for i, t := range tools {
+		if i > 0 {
+			sb.WriteString("\n")
 		}
 		name := t.Name
 		if name == "" {
-			name = "…"
+			name = "unknown"
 		}
-		argsDisplay := truncate(SanitizeCardContent(t.Args), 1500)
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("**%s 🔧 %s** (%s)\n\n", statusIcon, name, statusText))
-		sb.WriteString("**Input:**\n```json\n")
-		sb.WriteString(argsDisplay)
-		sb.WriteString("\n```\n")
-		if t.Done {
-			resultDisplay := truncate(SanitizeCardContent(t.Result), 2000)
-			sb.WriteString("**Output:**\n```\n")
-			if resultDisplay != "" {
-				sb.WriteString(resultDisplay)
+		sb.WriteString("🔧 **")
+		sb.WriteString(name)
+		sb.WriteString("**\n")
+
+		args := strings.TrimSpace(t.Args)
+		if args != "" && args != "{}" && args != "null" {
+			if formatted, isJSON := formatJSON(args); isJSON {
+				sb.WriteString("```json\n")
+				sb.WriteString(truncate(SanitizeCardContent(formatted), 1500))
+				sb.WriteString("\n```\n")
 			} else {
-				sb.WriteString("(empty)")
+				sb.WriteString(truncate(SanitizeCardContent(args), 1500))
+				sb.WriteString("\n")
 			}
-			sb.WriteString("\n```")
-		} else {
-			sb.WriteString("**Output:** _等待工具返回…_")
 		}
-		elems = append(elems, cardElement{Tag: "markdown", Content: sb.String()})
+
+		if t.Done {
+			result := strings.TrimSpace(t.Result)
+			if result == "" {
+				sb.WriteString("> （空）\n")
+			} else if strings.HasPrefix(result, "❌ ") {
+				sb.WriteString("> ❌\n")
+				sb.WriteString("```\n")
+				sb.WriteString(truncate(SanitizeCardContent(strings.TrimPrefix(result, "❌ ")), 2000))
+				sb.WriteString("\n```\n")
+			} else if formatted, isJSON := formatJSON(result); isJSON {
+				sb.WriteString("> ✅\n")
+				sb.WriteString("```json\n")
+				sb.WriteString(truncate(SanitizeCardContent(formatted), 2000))
+				sb.WriteString("\n```\n")
+			} else {
+				sb.WriteString("> ✅\n")
+				sb.WriteString("```\n")
+				sb.WriteString(truncate(SanitizeCardContent(result), 2000))
+				sb.WriteString("\n```\n")
+			}
+		} else {
+			sb.WriteString("> ⏳ 执行中…\n")
+		}
 	}
-	return elems
+	return strings.TrimRight(sb.String(), "\n")
+}
+
+func formatJSON(s string) (formatted string, ok bool) {
+	var v any
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		return "", false
+	}
+	bs, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return "", false
+	}
+	return string(bs), true
 }
 
 func BuildCard(tools []ToolEntry, thinking, responseText string, streaming bool) string {
 	var elems []cardElement
 
 	if thinking != "" {
-		elems = append(elems, thinkingMarkdown(thinking))
+		elems = append(elems, thinkingPanel(thinking, streaming && responseText == "" && len(tools) == 0))
 	}
 	if len(tools) > 0 {
-		elems = append(elems, toolElements(tools)...)
+		elems = append(elems, toolsPanel(tools, streaming))
 	}
 
 	text := SanitizeCardContent(responseText)

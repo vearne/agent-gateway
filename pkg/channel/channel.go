@@ -165,8 +165,8 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 			zap.String("chat_id", msg.ChatID),
 			zap.String("msg_id", msg.MsgID),
 			zap.String("text", card.Text),
-			zap.Int("tools", len(card.Tools)),
-			zap.Int("thinking_len", len(card.Thinking)))
+			zap.Any("tools", card.Tools),
+			zap.String("thinking", card.Thinking))
 
 		if time.Since(lastUpdate) < 500*time.Millisecond {
 			continue
