@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/vearne/agent-gateway/internal/adapter"
+	"github.com/vearne/agent-gateway/pkg/adapter"
 )
 
 var _ adapter.BotAdapter = (*WhatsAppBot)(nil)

@@ -8,7 +8,7 @@ import (
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 
-	"github.com/vearne/agent-gateway/internal/adapter"
+	"github.com/vearne/agent-gateway/pkg/adapter"
 )
 
 var _ adapter.BotAdapter = (*LarkBot)(nil)

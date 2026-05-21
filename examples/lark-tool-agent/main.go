@@ -29,10 +29,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/vearne/agent-gateway/internal/adapter"
-	"github.com/vearne/agent-gateway/internal/channel"
-	"github.com/vearne/agent-gateway/internal/lark"
-	"github.com/vearne/agent-gateway/internal/session"
+	"github.com/vearne/agent-gateway/pkg/adapter"
+	"github.com/vearne/agent-gateway/pkg/channel"
+	"github.com/vearne/agent-gateway/pkg/lark"
+	"github.com/vearne/agent-gateway/pkg/session"
 
 	agentscope "github.com/vearne/agentscope-go/pkg/agent"
 	"github.com/vearne/agentscope-go/pkg/formatter"

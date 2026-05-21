@@ -20,11 +20,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/vearne/agent-gateway/internal/agent"
-	"github.com/vearne/agent-gateway/internal/channel"
-	"github.com/vearne/agent-gateway/internal/config"
-	"github.com/vearne/agent-gateway/internal/session"
-	"github.com/vearne/agent-gateway/internal/whatsapp"
+	"github.com/vearne/agent-gateway/pkg/agent"
+	"github.com/vearne/agent-gateway/pkg/channel"
+	"github.com/vearne/agent-gateway/pkg/config"
+	"github.com/vearne/agent-gateway/pkg/session"
+	"github.com/vearne/agent-gateway/pkg/whatsapp"
 )
 
 func main() {

@@ -1,9 +1,9 @@
 package agent
 
 import (
-	"github.com/vearne/agent-gateway/internal/adapter"
+	"github.com/vearne/agent-gateway/pkg/adapter"
 
-	"github.com/vearne/agent-gateway/internal/config"
+	"github.com/vearne/agent-gateway/pkg/config"
 
 	agentscope "github.com/vearne/agentscope-go/pkg/agent"
 	"github.com/vearne/agentscope-go/pkg/formatter"

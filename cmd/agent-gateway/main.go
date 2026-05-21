@@ -10,16 +10,16 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/vearne/agent-gateway/internal/adapter"
-	"github.com/vearne/agent-gateway/internal/agent"
-	"github.com/vearne/agent-gateway/internal/channel"
-	"github.com/vearne/agent-gateway/internal/config"
-	"github.com/vearne/agent-gateway/internal/discord"
-	"github.com/vearne/agent-gateway/internal/lark"
-	"github.com/vearne/agent-gateway/internal/session"
-	"github.com/vearne/agent-gateway/internal/slack"
-	"github.com/vearne/agent-gateway/internal/telegram"
-	"github.com/vearne/agent-gateway/internal/whatsapp"
+	"github.com/vearne/agent-gateway/pkg/adapter"
+	"github.com/vearne/agent-gateway/pkg/agent"
+	"github.com/vearne/agent-gateway/pkg/channel"
+	"github.com/vearne/agent-gateway/pkg/config"
+	"github.com/vearne/agent-gateway/pkg/discord"
+	"github.com/vearne/agent-gateway/pkg/lark"
+	"github.com/vearne/agent-gateway/pkg/session"
+	"github.com/vearne/agent-gateway/pkg/slack"
+	"github.com/vearne/agent-gateway/pkg/telegram"
+	"github.com/vearne/agent-gateway/pkg/whatsapp"
 )
 
 func main() {

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/vearne/agent-gateway/internal/adapter"
+	"github.com/vearne/agent-gateway/pkg/adapter"
 )
 
 type DiscordBot struct {

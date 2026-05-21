@@ -10,7 +10,7 @@ import (
 	"github.com/slack-go/slack/socketmode"
 	"go.uber.org/zap"
 
-	"github.com/vearne/agent-gateway/internal/adapter"
+	"github.com/vearne/agent-gateway/pkg/adapter"
 )
 
 var _ adapter.BotAdapter = (*SlackBot)(nil)

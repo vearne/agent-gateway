@@ -28,7 +28,7 @@ No Makefile, no Dockerfile, no CI, no code generation. Standard `go build` / `go
 
 ```
 cmd/agent-gateway/main.go   — entrypoint: loads config, creates bots + channels, manages lifecycle
-internal/
+pkg/
   adapter/types.go           — core interfaces: BotAdapter, Agent, AgentFactory, SessionStore
   channel/
     channel.go               — Channel: wires bot → agent → session, handles /new /clear /help commands

@@ -97,7 +97,7 @@ Per-channel blocks can override any `agent` or `session` field. Environment vari
 
 ```
 cmd/agent-gateway/main.go     Entry: load config, create bots + channels, graceful shutdown
-internal/
+pkg/
   adapter/                    BotAdapter, Agent, SessionStore interfaces
   channel/                    Message routing, streaming card updates, slash commands
   config/                     YAML load, validation, env overrides
@@ -137,7 +137,7 @@ See each `examples/*/README.md` for platform-specific setup.
 
 ## Extending
 
-- **New IM platform** — Implement `adapter.BotAdapter`, add cases in `cmd/agent-gateway/main.go` and `internal/config/config.go`.
+- **New IM platform** — Implement `adapter.BotAdapter`, add cases in `cmd/agent-gateway/main.go` and `pkg/config/config.go`.
 - **Custom tools** — Provide an `AgentFactory` that passes a `tool.Toolkit` to `agentscope.NewDeepAgent`; see `examples/lark-tool-agent`.
 
 ## Notes

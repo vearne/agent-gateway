@@ -17,7 +17,7 @@ agent-gateway/
 ├── cmd/
 │   └── agent-gateway/
 │       └── main.go              # Entry point: parse config → build objects → ch.Start()
-├── internal/
+├── pkg/
 │   ├── config/
 │   │   └── config.go            # YAML + env var loading
 │   ├── session/
@@ -111,7 +111,7 @@ git commit -m "chore: project scaffolding with dependencies and example config"
 ### Task 2: Config (YAML + Env Override)
 
 **Files:**
-- Create: `internal/config/config.go`
+- Create: `pkg/config/config.go`
 
 - [ ] **Step 1: Write config.go**
 
@@ -195,13 +195,13 @@ func Load(path string) (Config, error) {
 
 - [ ] **Step 2: Verify compilation**
 
-Run: `go build ./internal/config/`
+Run: `go build ./pkg/config/`
 Expected: no errors
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add internal/config/config.go
+git add pkg/config/config.go
 git commit -m "feat: add YAML + env var config loading"
 ```
 
@@ -210,7 +210,7 @@ git commit -m "feat: add YAML + env var config loading"
 ### Task 3: Session Store (Persistent chatID → conversation history)
 
 **Files:**
-- Create: `internal/session/store.go`
+- Create: `pkg/session/store.go`
 
 **Design:** `SessionStore` is a storage interface for conversation history. It uses agentscope-go's `session.SessionBase` (`Save`/`Load` on `memory.MemoryBase`) under the hood. Two implementations: JSON file (dev) and Redis (prod). The `/new` command generates a new session key (chatID → chatID_1 → chatID_2, etc.) like ai-channel.
 
@@ -382,13 +382,13 @@ func nextSessionKey(chatID, current string) string {
 
 - [ ] **Step 2: Verify compilation**
 
-Run: `go build ./internal/session/`
+Run: `go build ./pkg/session/`
 Expected: may fail if agentscope-go dependency not yet resolved; fix import paths as needed.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add internal/session/store.go
+git add pkg/session/store.go
 git commit -m "feat: add persistent SessionStore with JSON file and Redis backends"
 ```
 
@@ -397,7 +397,7 @@ git commit -m "feat: add persistent SessionStore with JSON file and Redis backen
 ### Task 4: Agent Factory (stateless DeepAgent creation)
 
 **Files:**
-- Create: `internal/agent/factory.go`
+- Create: `pkg/agent/factory.go`
 
 - [ ] **Step 1: Write agent/factory.go**
 
@@ -410,7 +410,7 @@ import (
 	"github.com/vearne/agentscope-go/pkg/memory"
 	"github.com/vearne/agentscope-go/pkg/model"
 
-	"github.com/vearne/agent-gateway/internal/config"
+	"github.com/vearne/agent-gateway/pkg/config"
 )
 
 // Factory creates fresh DeepAgent instances on demand.
@@ -451,12 +451,12 @@ func (f *Factory) Create() *agent.DeepAgent {
 
 - [ ] **Step 2: Verify compilation**
 
-Run: `go build ./internal/agent/`
+Run: `go build ./pkg/agent/`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add internal/agent/factory.go
+git add pkg/agent/factory.go
 git commit -m "feat: add stateless DeepAgent factory"
 ```
 
@@ -465,7 +465,7 @@ git commit -m "feat: add stateless DeepAgent factory"
 ### Task 5: Feishu Message Parsing
 
 **Files:**
-- Create: `internal/lark/message.go`
+- Create: `pkg/lark/message.go`
 
 - [ ] **Step 1: Write lark/message.go**
 
@@ -675,12 +675,12 @@ func detectMIME(data []byte) string {
 
 - [ ] **Step 2: Verify compilation**
 
-Run: `go build ./internal/lark/`
+Run: `go build ./pkg/lark/`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add internal/lark/message.go
+git add pkg/lark/message.go
 git commit -m "feat: add Feishu message parsing (text, post, image)"
 ```
 
@@ -689,7 +689,7 @@ git commit -m "feat: add Feishu message parsing (text, post, image)"
 ### Task 5: Interactive Card (Schema 2.0)
 
 **Files:**
-- Create: `internal/lark/card.go`
+- Create: `pkg/lark/card.go`
 
 - [ ] **Step 1: Write lark/card.go**
 
@@ -977,12 +977,12 @@ type CardUpdate struct {
 
 - [ ] **Step 2: Verify compilation**
 
-Run: `go build ./internal/lark/`
+Run: `go build ./pkg/lark/`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add internal/lark/card.go
+git add pkg/lark/card.go
 git commit -m "feat: add Lark interactive card builder with streaming patch support"
 ```
 
@@ -991,7 +991,7 @@ git commit -m "feat: add Lark interactive card builder with streaming patch supp
 ### Task 6: Lark Client (WebSocket)
 
 **Files:**
-- Create: `internal/lark/client.go`
+- Create: `pkg/lark/client.go`
 
 - [ ] **Step 1: Write lark/client.go**
 
@@ -1122,12 +1122,12 @@ func SendTextReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, text 
 
 - [ ] **Step 2: Verify compilation**
 
-Run: `go build ./internal/lark/`
+Run: `go build ./pkg/lark/`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add internal/lark/client.go
+git add pkg/lark/client.go
 git commit -m "feat: add Lark WebSocket client with event dispatch"
 ```
 
@@ -1136,7 +1136,7 @@ git commit -m "feat: add Lark WebSocket client with event dispatch"
 ### Task 7: Channel (Agent Factory + SessionStore + Lark Client)
 
 **Files:**
-- Create: `internal/channel/channel.go`
+- Create: `pkg/channel/channel.go`
 
 **Core design — stateless agent + persistent session:**
 1. Message arrives → acquire per-chatID lock
@@ -1165,9 +1165,9 @@ import (
 	"github.com/vearne/agentscope-go/pkg/message"
 	"go.uber.org/zap"
 
-	"github.com/vearne/agent-gateway/internal/agent"
-	"github.com/vearne/agent-gateway/internal/lark"
-	"github.com/vearne/agent-gateway/internal/session"
+	"github.com/vearne/agent-gateway/pkg/agent"
+	"github.com/vearne/agent-gateway/pkg/lark"
+	"github.com/vearne/agent-gateway/pkg/session"
 )
 
 // Channel wires AgentFactory + SessionStore + Lark Client.
@@ -1342,12 +1342,12 @@ func extractToolEntries(msg *message.Msg) []lark.ToolEntry {
 
 - [ ] **Step 2: Verify compilation**
 
-Run: `go build ./internal/channel/`
+Run: `go build ./pkg/channel/`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add internal/channel/channel.go
+git add pkg/channel/channel.go
 git commit -m "feat: add Channel with stateless agent + persistent session pattern"
 ```
 
@@ -1356,7 +1356,7 @@ git commit -m "feat: add Channel with stateless agent + persistent session patte
 ### Task 8: Message Dedup (shared)
 
 **Files:**
-- Create: `internal/lark/dedup.go`
+- Create: `pkg/lark/dedup.go`
 
 - [ ] **Step 1: Write dedup.go**
 
@@ -1403,7 +1403,7 @@ func (d *msgDedup) tryAdd(msgID string) bool {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add internal/lark/dedup.go
+git add pkg/lark/dedup.go
 git commit -m "feat: add message deduplication (10min TTL)"
 ```
 
@@ -1430,11 +1430,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/vearne/agent-gateway/internal/agent"
-	"github.com/vearne/agent-gateway/internal/channel"
-	"github.com/vearne/agent-gateway/internal/config"
-	"github.com/vearne/agent-gateway/internal/lark"
-	"github.com/vearne/agent-gateway/internal/session"
+	"github.com/vearne/agent-gateway/pkg/agent"
+	"github.com/vearne/agent-gateway/pkg/channel"
+	"github.com/vearne/agent-gateway/pkg/config"
+	"github.com/vearne/agent-gateway/pkg/lark"
+	"github.com/vearne/agent-gateway/pkg/session"
 )
 
 func main() {

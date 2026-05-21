@@ -97,7 +97,7 @@ channels:
 
 ```
 cmd/agent-gateway/main.go     入口：加载配置、创建 bot 与 channel、优雅退出
-internal/
+pkg/
   adapter/                    BotAdapter、Agent、SessionStore 接口
   channel/                    消息路由、流式卡片更新、斜杠指令
   config/                     YAML 加载、校验、环境变量覆盖
@@ -137,7 +137,7 @@ make fmt      # gofmt + goimports
 
 ## 扩展开发
 
-- **新增 IM 平台** — 实现 `adapter.BotAdapter`，在 `cmd/agent-gateway/main.go` 与 `internal/config/config.go` 中注册。
+- **新增 IM 平台** — 实现 `adapter.BotAdapter`，在 `cmd/agent-gateway/main.go` 与 `pkg/config/config.go` 中注册。
 - **自定义工具** — 实现传入 `tool.Toolkit` 的 `AgentFactory`；参考 `examples/lark-tool-agent`。
 
 ## 注意事项

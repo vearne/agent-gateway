@@ -10,7 +10,7 @@ import (
 	"github.com/vearne/agentscope-go/pkg/message"
 	"go.uber.org/zap"
 
-	"github.com/vearne/agent-gateway/internal/adapter"
+	"github.com/vearne/agent-gateway/pkg/adapter"
 )
 
 type Channel struct {
