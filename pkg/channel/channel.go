@@ -85,9 +85,9 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 	mu.Lock()
 	defer mu.Unlock()
 
-	deepAgent := ch.factory.Create()
+	agent := ch.factory.Create()
 
-	if err := ch.store.LoadSession(ctx, msg.ChatID, deepAgent.Memory()); err != nil {
+	if err := ch.store.LoadSession(ctx, msg.ChatID, agent.Memory()); err != nil {
 		zap.L().Warn("load session failed, starting fresh",
 			zap.String("chat_id", msg.ChatID), zap.Error(err))
 	}
@@ -114,7 +114,7 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 		return
 	}
 
-	streamCh, err := deepAgent.ReplyStream(ctx, agentMsg)
+	streamCh, err := agent.ReplyStream(ctx, agentMsg)
 	if err != nil {
 		zap.L().Error("agent reply stream failed",
 			zap.String("chat_id", msg.ChatID),
@@ -160,7 +160,7 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 	}
 
 	// Save after the stream completes so assistant/tool messages are in memory.
-	if saveErr := ch.store.SaveSession(ctx, msg.ChatID, deepAgent.Memory()); saveErr != nil {
+	if saveErr := ch.store.SaveSession(ctx, msg.ChatID, agent.Memory()); saveErr != nil {
 		zap.L().Error("save session failed",
 			zap.String("chat_id", msg.ChatID), zap.Error(saveErr))
 	}

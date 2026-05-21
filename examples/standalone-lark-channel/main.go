@@ -47,7 +47,8 @@ func main() {
 	}
 
 	factory := agent.NewFactory(config.AgentConfig{
-		ModelName:        envOr("AGENT_MODEL_NAME", "gpt-4o"),
+		BaseURL:          envOr("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+		ModelName:        envOr("OPENAI_MODEL", "gpt-4o"),
 		APIKey:           apiKey,
 		SystemPrompt:     "你是一个有帮助的助手，请用中文回答问题。",
 		MaxIters:         20,
