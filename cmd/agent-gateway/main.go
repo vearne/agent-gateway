@@ -96,7 +96,7 @@ func createBot(chCfg config.ChannelConfig) (adapter.BotAdapter, error) {
 	}
 }
 
-func createStore(cfg config.SessionConfig) *session.Store {
+func createStore(cfg config.SessionConfig) adapter.SessionStore {
 	switch cfg.Backend {
 	case "redis":
 		return session.NewRedisStore(cfg.Addr, cfg.Password, cfg.DB)
