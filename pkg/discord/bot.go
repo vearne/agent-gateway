@@ -98,13 +98,19 @@ func (b *DiscordBot) UpdateCard(ctx context.Context, cardMsgID string, card adap
 }
 
 func buildEmbed(card adapter.CardContent) *discordgo.MessageEmbed {
-	description := card.Text
+	var desc strings.Builder
+	if card.Thinking != "" {
+		desc.WriteString("**思考过程**\n")
+		desc.WriteString(card.Thinking)
+		desc.WriteString("\n\n")
+	}
+	desc.WriteString(card.Text)
 	if card.Streaming {
-		description += "▌"
+		desc.WriteString("▌")
 	}
 	embed := &discordgo.MessageEmbed{
 		Title:       "Agent Response",
-		Description: description,
+		Description: desc.String(),
 		Color:       0x0099ff,
 		Fields:      make([]*discordgo.MessageEmbedField, 0, len(card.Tools)),
 	}

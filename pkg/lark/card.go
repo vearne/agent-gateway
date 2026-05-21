@@ -38,22 +38,8 @@ type cardBody struct {
 }
 
 type cardElement struct {
-	Tag      string        `json:"tag"`
-	Content  string        `json:"content,omitempty"`
-	Expanded *bool         `json:"expanded,omitempty"`
-	Header   *panelHeader  `json:"header,omitempty"`
-	Elements []cardElement `json:"elements,omitempty"`
-}
-
-type panelHeader struct {
-	Tag      string      `json:"tag"`
-	Template string      `json:"template,omitempty"`
-	Title    *panelTitle `json:"title"`
-}
-
-type panelTitle struct {
 	Tag     string `json:"tag"`
-	Content string `json:"content"`
+	Content string `json:"content,omitempty"`
 }
 
 func truncate(s string, maxLen int) string {
@@ -63,53 +49,61 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
+func thinkingMarkdown(thinking string) cardElement {
+	display := truncate(SanitizeCardContent(thinking), 3000)
+	return cardElement{
+		Tag:     "markdown",
+		Content: "**🧠 思考过程**\n\n" + display,
+	}
+}
+
 func toolElements(tools []ToolEntry) []cardElement {
-	var elems []cardElement
+	elems := make([]cardElement, 0, len(tools))
 	for _, t := range tools {
 		statusIcon := "⏳"
+		statusText := "执行中"
 		if t.Done {
 			statusIcon = "✅"
+			statusText = "已完成"
 		}
-		argsDisplay := truncate(t.Args, 200)
-		title := fmt.Sprintf("%s %s", statusIcon, t.Name)
-
-		innerElems := []cardElement{
-			{Tag: "markdown", Content: fmt.Sprintf("**Args:** `%s`", argsDisplay)},
+		name := t.Name
+		if name == "" {
+			name = "…"
 		}
-		if t.Done && t.Result != "" {
-			resultDisplay := truncate(t.Result, 500)
-			innerElems = append(innerElems, cardElement{
-				Tag:     "markdown",
-				Content: fmt.Sprintf("**Result:**\n```\n%s\n```", resultDisplay),
-			})
+		argsDisplay := truncate(SanitizeCardContent(t.Args), 1500)
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("**%s 🔧 %s** (%s)\n\n", statusIcon, name, statusText))
+		sb.WriteString("**Input:**\n```json\n")
+		sb.WriteString(argsDisplay)
+		sb.WriteString("\n```\n")
+		if t.Done {
+			resultDisplay := truncate(SanitizeCardContent(t.Result), 2000)
+			sb.WriteString("**Output:**\n```\n")
+			if resultDisplay != "" {
+				sb.WriteString(resultDisplay)
+			} else {
+				sb.WriteString("(empty)")
+			}
+			sb.WriteString("\n```")
+		} else {
+			sb.WriteString("**Output:** _等待工具返回…_")
 		}
-
-		elems = append(elems, cardElement{
-			Tag:      "collapsible_panel",
-			Expanded: boolPtr(false),
-			Header: &panelHeader{
-				Tag: "plain_text",
-				Title: &panelTitle{
-					Tag:     "plain_text",
-					Content: title,
-				},
-			},
-			Elements: innerElems,
-		})
+		elems = append(elems, cardElement{Tag: "markdown", Content: sb.String()})
 	}
 	return elems
 }
 
-func boolPtr(b bool) *bool { return &b }
-
-func BuildCard(tools []ToolEntry, responseText string, streaming bool) string {
+func BuildCard(tools []ToolEntry, thinking, responseText string, streaming bool) string {
 	var elems []cardElement
 
+	if thinking != "" {
+		elems = append(elems, thinkingMarkdown(thinking))
+	}
 	if len(tools) > 0 {
 		elems = append(elems, toolElements(tools)...)
 	}
 
-	text := responseText
+	text := SanitizeCardContent(responseText)
 	if streaming {
 		text += "▌"
 	}
@@ -125,9 +119,13 @@ func BuildCard(tools []ToolEntry, responseText string, streaming bool) string {
 	}
 	if streaming {
 		cfg.StreamingMode = true
-		cfg.Summary = &cardSummary{
-			Content: "thinking...",
+		summary := "生成中..."
+		if thinking != "" && responseText == "" && len(tools) == 0 {
+			summary = "推理中..."
+		} else if len(tools) > 0 && responseText == "" {
+			summary = "调用工具..."
 		}
+		cfg.Summary = &cardSummary{Content: summary}
 	}
 
 	card := richCard{
@@ -148,7 +146,12 @@ func PatchCard(ctx context.Context, larkAPI *lark.Client, messageID, cardJSON st
 			Build()).
 		Build()
 
-	resp, err := larkAPI.Im.Message.Patch(ctx, req)
+	var resp *larkim.PatchMessageResp
+	err := retryOnNetErr(ctx, func() error {
+		var callErr error
+		resp, callErr = larkAPI.Im.Message.Patch(ctx, req)
+		return callErr
+	})
 	if err != nil {
 		return fmt.Errorf("patch card: %w", err)
 	}
@@ -168,7 +171,12 @@ func SendTextReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, text 
 			Build()).
 		Build()
 
-	resp, err := larkAPI.Im.Message.Reply(ctx, req)
+	var resp *larkim.ReplyMessageResp
+	err := retryOnNetErr(ctx, func() error {
+		var callErr error
+		resp, callErr = larkAPI.Im.Message.Reply(ctx, req)
+		return callErr
+	})
 	if err != nil {
 		return fmt.Errorf("reply message: %w", err)
 	}
@@ -192,7 +200,12 @@ func sendCardReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, cardJ
 			Build()).
 		Build()
 
-	resp, err := larkAPI.Im.Message.Reply(ctx, req)
+	var resp *larkim.ReplyMessageResp
+	err := retryOnNetErr(ctx, func() error {
+		var callErr error
+		resp, callErr = larkAPI.Im.Message.Reply(ctx, req)
+		return callErr
+	})
 	if err != nil {
 		return "", fmt.Errorf("reply card: %w", err)
 	}
@@ -213,7 +226,12 @@ func UpdateCard(ctx context.Context, larkAPI *lark.Client, messageID, cardJSON s
 			Build()).
 		Build()
 
-	resp, err := larkAPI.Im.Message.Update(ctx, req)
+	var resp *larkim.UpdateMessageResp
+	err := retryOnNetErr(ctx, func() error {
+		var callErr error
+		resp, callErr = larkAPI.Im.Message.Update(ctx, req)
+		return callErr
+	})
 	if err != nil {
 		return fmt.Errorf("update card: %w", err)
 	}
