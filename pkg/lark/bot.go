@@ -68,7 +68,7 @@ func (b *LarkBot) SendCard(ctx context.Context, parentMsgID string, card adapter
 }
 
 func (b *LarkBot) UpdateCard(ctx context.Context, cardMsgID string, card adapter.CardContent) error {
-	cardJSON := BuildCard(convertFromAdapterTools(card.Tools), card.Text, card.Streaming)
+	cardJSON := BuildUpdateCard(convertFromAdapterTools(card.Tools), card.Text, card.Streaming)
 	return UpdateCard(ctx, b.api, cardMsgID, cardJSON)
 }
 

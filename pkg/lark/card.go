@@ -140,6 +140,34 @@ func BuildCard(tools []ToolEntry, responseText string, streaming bool) string {
 	return string(data)
 }
 
+func BuildUpdateCard(tools []ToolEntry, responseText string, streaming bool) string {
+	var elems []cardElement
+
+	if len(tools) > 0 {
+		elems = append(elems, toolElements(tools)...)
+	}
+
+	text := responseText
+	if streaming {
+		text += "▌"
+	}
+	if text != "" {
+		elems = append(elems, cardElement{
+			Tag:     "markdown",
+			Content: text,
+		})
+	}
+
+	card := richCard{
+		Schema: "2.0",
+		Config: cardConfig{WideScreenMode: true},
+		Body:   cardBody{Elements: elems},
+	}
+
+	data, _ := json.Marshal(card)
+	return string(data)
+}
+
 func SendTextReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, text string) error {
 	content, _ := json.Marshal(map[string]string{"text": text})
 	req := larkim.NewReplyMessageReqBuilder().
