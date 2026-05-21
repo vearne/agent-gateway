@@ -68,8 +68,8 @@ func (b *LarkBot) SendCard(ctx context.Context, parentMsgID string, card adapter
 }
 
 func (b *LarkBot) UpdateCard(ctx context.Context, cardMsgID string, card adapter.CardContent) error {
-	cardJSON := BuildUpdateCard(convertFromAdapterTools(card.Tools), card.Text, card.Streaming)
-	return UpdateCard(ctx, b.api, cardMsgID, cardJSON)
+	cardJSON := BuildCard(convertFromAdapterTools(card.Tools), card.Text, card.Streaming)
+	return PatchCard(ctx, b.api, cardMsgID, cardJSON)
 }
 
 func (b *LarkBot) onEvent(ctx context.Context, event *larkim.P2MessageReceiveV1) error {

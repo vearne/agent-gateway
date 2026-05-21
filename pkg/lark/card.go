@@ -24,7 +24,7 @@ type richCard struct {
 }
 
 type cardConfig struct {
-	WideScreenMode bool         `json:"wide_screen_mode"`
+	WideScreenMode bool         `json:"wide_screen_mode,omitempty"`
 	StreamingMode  bool         `json:"streaming_mode,omitempty"`
 	Summary        *cardSummary `json:"summary,omitempty"`
 }
@@ -140,32 +140,22 @@ func BuildCard(tools []ToolEntry, responseText string, streaming bool) string {
 	return string(data)
 }
 
-func BuildUpdateCard(tools []ToolEntry, responseText string, streaming bool) string {
-	var elems []cardElement
+func PatchCard(ctx context.Context, larkAPI *lark.Client, messageID, cardJSON string) error {
+	req := larkim.NewPatchMessageReqBuilder().
+		MessageId(messageID).
+		Body(larkim.NewPatchMessageReqBodyBuilder().
+			Content(cardJSON).
+			Build()).
+		Build()
 
-	if len(tools) > 0 {
-		elems = append(elems, toolElements(tools)...)
+	resp, err := larkAPI.Im.Message.Patch(ctx, req)
+	if err != nil {
+		return fmt.Errorf("patch card: %w", err)
 	}
-
-	text := responseText
-	if streaming {
-		text += "▌"
+	if !resp.Success() {
+		return fmt.Errorf("patch card failed: code=%d, msg=%s", resp.Code, resp.Msg)
 	}
-	if text != "" {
-		elems = append(elems, cardElement{
-			Tag:     "markdown",
-			Content: text,
-		})
-	}
-
-	card := richCard{
-		Schema: "2.0",
-		Config: cardConfig{WideScreenMode: true},
-		Body:   cardBody{Elements: elems},
-	}
-
-	data, _ := json.Marshal(card)
-	return string(data)
+	return nil
 }
 
 func SendTextReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, text string) error {
