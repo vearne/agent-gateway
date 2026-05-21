@@ -30,7 +30,6 @@ type cardConfig struct {
 }
 
 type cardSummary struct {
-	Tag     string `json:"tag"`
 	Content string `json:"content"`
 }
 
@@ -127,7 +126,6 @@ func BuildCard(tools []ToolEntry, responseText string, streaming bool) string {
 	if streaming {
 		cfg.StreamingMode = true
 		cfg.Summary = &cardSummary{
-			Tag:     "plain_text",
 			Content: "thinking...",
 		}
 	}

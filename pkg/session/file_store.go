@@ -43,6 +43,13 @@ func (s *FileStore) newSession(chatID string) (asSession.SessionBase, error) {
 		return nil, fmt.Errorf("create session dir: %w", err)
 	}
 	fp := filepath.Join(s.dir, key+".json")
+	if _, err := os.Stat(fp); os.IsNotExist(err) {
+		f, err := os.Create(fp)
+		if err != nil {
+			return nil, fmt.Errorf("create session file: %w", err)
+		}
+		f.Close()
+	}
 	return asSession.NewJSONSession(fp), nil
 }
 
