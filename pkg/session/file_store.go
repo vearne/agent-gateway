@@ -68,7 +68,9 @@ func (s *FileStore) saveKeyMap(chatID string) {
 	kp := filepath.Join(s.dir, chatID, "keymap.json")
 	m := map[string]string{chatID: s.keyMap[chatID]}
 	data, _ := json.Marshal(m)
-	os.WriteFile(kp, data, 0644)
+	if err := os.WriteFile(kp, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "session: save key map %s: %v\n", kp, err)
+	}
 }
 
 func (s *FileStore) newSession(chatID string) (asSession.SessionBase, error) {
