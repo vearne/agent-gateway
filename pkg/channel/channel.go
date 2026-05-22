@@ -153,6 +153,11 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 	cardState := newStreamCardState()
 
 	for streamMsg := range streamCh {
+		// 去重优化：如果队列中还有更新的请求就跳过
+		if len(streamCh) > 0 {
+			continue
+		}
+
 		finalResp = streamMsg
 		card := cardState.build(streamMsg, agent.Memory(), true)
 		stateKey := cardStateKey(card)
@@ -168,7 +173,7 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 			zap.Any("tools", card.Tools),
 			zap.String("thinking", card.Thinking))
 
-		if time.Since(lastUpdate) < 500*time.Millisecond {
+		if time.Since(lastUpdate) < 300*time.Millisecond {
 			continue
 		}
 		lastUpdate = time.Now()
@@ -220,12 +225,53 @@ func (s *streamCardState) build(msg *message.Msg, mem memory.MemoryBase, streami
 		mergeToolMap(s.tools, extractToolEntries(msg))
 	}
 	enrichToolsFromMemory(mem, s.tools)
+
+	text := ""
+	if msg != nil {
+		text = msg.GetTextContent()
+	}
+	thinking, text := splitThinkingForDisplay(s.mergedThinking(), text, toolsFromMap(s.tools))
+
 	return adapter.CardContent{
 		Tools:     toolsFromMap(s.tools),
-		Thinking:  s.mergedThinking(),
-		Text:      msg.GetTextContent(),
+		Thinking:  thinking,
+		Text:      text,
 		Streaming: streaming,
 	}
+}
+
+// splitThinkingForDisplay moves post-tool synthesis out of thinking blocks.
+// Some models stream the final answer into reasoning_content (thinking) while
+// leaving text blocks empty after tool execution.
+func splitThinkingForDisplay(thinking, text string, tools []adapter.ToolEntry) (string, string) {
+	if text != "" || thinking == "" {
+		return thinking, text
+	}
+	if !hasDoneTools(tools) {
+		return thinking, text
+	}
+	for _, sep := range []string{"\n\n\n", "\n\n"} {
+		idx := strings.LastIndex(thinking, sep)
+		if idx < 0 {
+			continue
+		}
+		suffix := strings.TrimSpace(thinking[idx+len(sep):])
+		if suffix == "" {
+			continue
+		}
+		prefix := strings.TrimSpace(thinking[:idx])
+		return prefix, suffix
+	}
+	return thinking, text
+}
+
+func hasDoneTools(tools []adapter.ToolEntry) bool {
+	for _, t := range tools {
+		if t.Done {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *streamCardState) mergeThinking(t string) {

@@ -284,52 +284,6 @@ func sendCardReply(ctx context.Context, larkAPI *lark.Client, parentMsgID, cardJ
 	return "", nil
 }
 
-func UpdateCard(ctx context.Context, larkAPI *lark.Client, messageID, cardJSON string) error {
-	req := larkim.NewUpdateMessageReqBuilder().
-		MessageId(messageID).
-		Body(larkim.NewUpdateMessageReqBodyBuilder().
-			Content(cardJSON).
-			Build()).
-		Build()
-
-	var resp *larkim.UpdateMessageResp
-	err := retryOnNetErr(ctx, func() error {
-		var callErr error
-		resp, callErr = larkAPI.Im.Message.Update(ctx, req)
-		return callErr
-	})
-	if err != nil {
-		return fmt.Errorf("update card: %w", err)
-	}
-	if !resp.Success() {
-		return fmt.Errorf("update card failed: code=%d, msg=%s", resp.Code, resp.Msg)
-	}
-	return nil
-}
-
-func CreateMessage(ctx context.Context, larkAPI *lark.Client, receiveID, receiveIDType, msgType, content string) (string, error) {
-	req := larkim.NewCreateMessageReqBuilder().
-		ReceiveIdType(receiveIDType).
-		Body(larkim.NewCreateMessageReqBodyBuilder().
-			ReceiveId(receiveID).
-			MsgType(msgType).
-			Content(content).
-			Build()).
-		Build()
-
-	resp, err := larkAPI.Im.Message.Create(ctx, req)
-	if err != nil {
-		return "", fmt.Errorf("create message: %w", err)
-	}
-	if !resp.Success() {
-		return "", fmt.Errorf("create message failed: code=%d, msg=%s", resp.Code, resp.Msg)
-	}
-	if resp.Data != nil && resp.Data.MessageId != nil {
-		return *resp.Data.MessageId, nil
-	}
-	return "", fmt.Errorf("create message: no message_id in response")
-}
-
 func SanitizeCardContent(s string) string {
 	r := strings.NewReplacer(
 		"&", "&amp;",
