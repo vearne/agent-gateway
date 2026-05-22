@@ -180,7 +180,10 @@ func main() {
 		toolkit:      tk,
 	}
 
-	store := session.NewFileStore(envOr("SESSION_DIR", "./sessions-tool"))
+	store, err := session.NewFileStore(envOr("SESSION_DIR", "./sessions-tool"))
+	if err != nil {
+		logger.Fatal("create session store", zap.Error(err))
+	}
 
 	bot := lark.NewLarkBot(appID, appSecret)
 	ch := channel.New("lark-tool-bot", bot, factory, store)

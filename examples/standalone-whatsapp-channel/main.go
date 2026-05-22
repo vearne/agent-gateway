@@ -48,7 +48,10 @@ func main() {
 		MaxContextTokens: 128000,
 	})
 
-	store := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone-whatsapp"))
+	store, err := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone-whatsapp"))
+	if err != nil {
+		logger.Fatal("create session store", zap.Error(err))
+	}
 	dataDir := envOr("WHATSAPP_DATA_DIR", "./data/whatsapp-standalone")
 	bot := whatsapp.NewWhatsAppBot(dataDir)
 

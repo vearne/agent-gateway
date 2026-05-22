@@ -18,17 +18,20 @@ import (
 	"os/signal"
 	"syscall"
 
-	"go.uber.org/zap"
-
 	"github.com/vearne/agent-gateway/pkg/agent"
 	"github.com/vearne/agent-gateway/pkg/channel"
 	"github.com/vearne/agent-gateway/pkg/config"
 	"github.com/vearne/agent-gateway/pkg/lark"
 	"github.com/vearne/agent-gateway/pkg/session"
+	"github.com/vearne/agentscope-go/pkg/tool"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func main() {
-	logger, _ := zap.NewProduction()
+	cfg := zap.NewProductionConfig()
+	cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel) // 改为 Debug
+	logger, _ := cfg.Build()
 	defer logger.Sync()
 	zap.ReplaceGlobals(logger)
 
@@ -46,16 +49,30 @@ func main() {
 		logger.Fatal("set AGENT_API_KEY or OPENAI_API_KEY env var")
 	}
 
-	factory := agent.NewFactory(config.AgentConfig{
-		BaseURL:          envOr("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-		ModelName:        envOr("OPENAI_MODEL", "gpt-4o"),
-		APIKey:           apiKey,
-		SystemPrompt:     "你是一个有帮助的助手，请用中文回答问题。",
-		MaxIters:         20,
-		MaxContextTokens: 128000,
-	})
+	tk := tool.NewToolkit()
+	// --- Built-in tools ---
+	if err := tool.RegisterPrintTool(tk); err != nil {
+		zap.L().Fatal("RegisterPrintTool")
+	}
+	if err := tool.RegisterShellTool(tk); err != nil {
+		zap.L().Fatal("RegisterShellTool")
+	}
+	factory := agent.NewToolKitFactory(
+		config.AgentConfig{
+			BaseURL:          envOr("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+			ModelName:        envOr("OPENAI_MODEL", "gpt-4o"),
+			APIKey:           apiKey,
+			SystemPrompt:     "你是一个有帮助的助手，请用中文回答问题。",
+			MaxIters:         20,
+			MaxContextTokens: 128000,
+		},
+		tk,
+	)
 
-	store := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone"))
+	store, err := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone"))
+	if err != nil {
+		logger.Fatal("create session store", zap.Error(err))
+	}
 	bot := lark.NewLarkBot(appID, appSecret)
 
 	ch := channel.New("standalone-lark", bot, factory, store)

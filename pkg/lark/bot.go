@@ -26,7 +26,7 @@ func NewLarkBot(appID, appSecret string) *LarkBot {
 	return &LarkBot{
 		appID:     appID,
 		appSecret: appSecret,
-		api:       lark.NewClient(appID, appSecret),
+		api:       newAPIClient(appID, appSecret),
 		dedup:     NewMsgDedup(),
 	}
 }
@@ -63,13 +63,17 @@ func (b *LarkBot) SendText(ctx context.Context, parentMsgID string, text string)
 }
 
 func (b *LarkBot) SendCard(ctx context.Context, parentMsgID string, card adapter.CardContent) (string, error) {
-	cardJSON := BuildCard(convertFromAdapterTools(card.Tools), card.Text, card.Streaming)
+	cardJSON := buildCardJSON(card)
 	return sendCardReply(ctx, b.api, parentMsgID, cardJSON)
 }
 
 func (b *LarkBot) UpdateCard(ctx context.Context, cardMsgID string, card adapter.CardContent) error {
-	cardJSON := BuildCard(convertFromAdapterTools(card.Tools), card.Text, card.Streaming)
+	cardJSON := buildCardJSON(card)
 	return PatchCard(ctx, b.api, cardMsgID, cardJSON)
+}
+
+func buildCardJSON(card adapter.CardContent) string {
+	return BuildCard(convertFromAdapterTools(card.Tools), card.Thinking, card.Text, card.Streaming)
 }
 
 func (b *LarkBot) onEvent(ctx context.Context, event *larkim.P2MessageReceiveV1) error {

@@ -148,6 +148,13 @@ func parseMsgID(msgID string) (channelID, timestamp string) {
 func buildBlocks(card adapter.CardContent) []slack.Block {
 	var blocks []slack.Block
 
+	if card.Thinking != "" {
+		blocks = append(blocks, slack.NewSectionBlock(
+			slack.NewTextBlockObject("mrkdwn", "*思考过程*\n"+card.Thinking, false, false),
+			nil, nil,
+		))
+	}
+
 	for _, tool := range card.Tools {
 		toolText := fmt.Sprintf("*%s*", tool.Name)
 		if tool.Args != "" {

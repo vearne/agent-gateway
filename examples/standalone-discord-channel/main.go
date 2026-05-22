@@ -52,7 +52,10 @@ func main() {
 		MaxContextTokens: 128000,
 	})
 
-	store := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone-discord"))
+	store, err := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone-discord"))
+	if err != nil {
+		logger.Fatal("create session store", zap.Error(err))
+	}
 	bot := discord.NewDiscordBot(token)
 
 	ch := channel.New("standalone-discord", bot, factory, store)

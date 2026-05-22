@@ -52,7 +52,10 @@ func main() {
 		MaxContextTokens: 128000,
 	})
 
-	store := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone-telegram"))
+	store, err := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone-telegram"))
+	if err != nil {
+		logger.Fatal("create session store", zap.Error(err))
+	}
 	bot := telegram.NewTelegramBot(token)
 
 	ch := channel.New("standalone-telegram", bot, factory, store)

@@ -179,6 +179,12 @@ func parseMsgID(id string) (types.JID, string, error) {
 func formatCard(card adapter.CardContent) string {
 	var sb strings.Builder
 
+	if card.Thinking != "" {
+		sb.WriteString("🧠 思考过程\n")
+		sb.WriteString(card.Thinking)
+		sb.WriteString("\n\n")
+	}
+
 	for _, tool := range card.Tools {
 		if tool.Done {
 			sb.WriteString("✅ ")

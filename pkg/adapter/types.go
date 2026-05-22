@@ -48,11 +48,13 @@ type InboundMessage struct {
 
 type CardContent struct {
 	Tools     []ToolEntry
+	Thinking  string
 	Text      string
 	Streaming bool
 }
 
 type ToolEntry struct {
+	ID     string
 	Name   string
 	Args   string
 	Result string
