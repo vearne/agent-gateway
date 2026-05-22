@@ -54,7 +54,10 @@ func main() {
 		MaxContextTokens: 128000,
 	})
 
-	store := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone-slack"))
+	store, err := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone-slack"))
+	if err != nil {
+		logger.Fatal("create session store", zap.Error(err))
+	}
 	bot := slack.NewSlackBot(botToken, appToken)
 
 	ch := channel.New("standalone-slack", bot, factory, store)

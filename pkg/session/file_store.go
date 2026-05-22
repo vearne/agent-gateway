@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,18 +13,43 @@ import (
 	asSession "github.com/vearne/agentscope-go/pkg/session"
 )
 
-// FileStore persists sessions as JSON files on disk.
+// FileStore persists sessions as JSON files on disk, organized by chatID subdirectory.
 type FileStore struct {
 	mu     sync.Mutex
 	dir    string
 	keyMap map[string]string
 }
 
-func NewFileStore(dir string) *FileStore {
-	return &FileStore{
+func NewFileStore(dir string) (*FileStore, error) {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("create session dir: %w", err)
+	}
+	fs := &FileStore{
 		dir:    dir,
 		keyMap: make(map[string]string),
 	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("read session dir: %w", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		kp := filepath.Join(dir, e.Name(), "keymap.json")
+		data, err := os.ReadFile(kp)
+		if err != nil {
+			continue
+		}
+		var m map[string]string
+		if json.Unmarshal(data, &m) != nil {
+			continue
+		}
+		for k, v := range m {
+			fs.keyMap[k] = v
+		}
+	}
+	return fs, nil
 }
 
 func (s *FileStore) currentKey(chatID string) string {
@@ -35,14 +61,23 @@ func (s *FileStore) currentKey(chatID string) string {
 
 func (s *FileStore) setCurrentKey(_ context.Context, chatID, key string) {
 	s.keyMap[chatID] = key
+	s.saveKeyMap(chatID)
+}
+
+func (s *FileStore) saveKeyMap(chatID string) {
+	kp := filepath.Join(s.dir, chatID, "keymap.json")
+	m := map[string]string{chatID: s.keyMap[chatID]}
+	data, _ := json.Marshal(m)
+	os.WriteFile(kp, data, 0644)
 }
 
 func (s *FileStore) newSession(chatID string) (asSession.SessionBase, error) {
 	key := s.currentKey(chatID)
-	if err := os.MkdirAll(s.dir, 0755); err != nil {
-		return nil, fmt.Errorf("create session dir: %w", err)
+	chatDir := filepath.Join(s.dir, chatID)
+	if err := os.MkdirAll(chatDir, 0755); err != nil {
+		return nil, fmt.Errorf("create chat session dir: %w", err)
 	}
-	fp := filepath.Join(s.dir, key+".json")
+	fp := filepath.Join(chatDir, key+".json")
 	if _, err := os.Stat(fp); os.IsNotExist(err) {
 		if err := os.WriteFile(fp, []byte("[]"), 0644); err != nil {
 			return nil, fmt.Errorf("create session file: %w", err)

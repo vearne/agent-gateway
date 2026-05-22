@@ -52,7 +52,12 @@ func main() {
 		factory := agent.NewFactory(agentCfg)
 
 		sessionCfg := chCfg.EffectiveSession(cfg.Session)
-		store := createStore(sessionCfg)
+		store, err := createStore(sessionCfg)
+		if err != nil {
+			logger.Fatal("create session store failed",
+				zap.String("channel", chCfg.Name),
+				zap.Error(err))
+		}
 
 		ch := channel.New(chCfg.Name, bot, factory, store)
 		mgr.Add(ch)
@@ -96,11 +101,15 @@ func createBot(chCfg config.ChannelConfig) (adapter.BotAdapter, error) {
 	}
 }
 
-func createStore(cfg config.SessionConfig) adapter.SessionStore {
+func createStore(cfg config.SessionConfig) (adapter.SessionStore, error) {
 	switch cfg.Backend {
 	case "redis":
-		return session.NewRedisStore(cfg.Addr, cfg.Password, cfg.DB)
+		return session.NewRedisStore(cfg.Addr, cfg.Password, cfg.DB), nil
 	default:
-		return session.NewFileStore(cfg.Dir)
+		fs, err := session.NewFileStore(cfg.Dir)
+		if err != nil {
+			return nil, fmt.Errorf("create file store: %w", err)
+		}
+		return fs, nil
 	}
 }

@@ -69,7 +69,10 @@ func main() {
 		tk,
 	)
 
-	store := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone"))
+	store, err := session.NewFileStore(envOr("SESSION_DIR", "./sessions-standalone"))
+	if err != nil {
+		logger.Fatal("create session store", zap.Error(err))
+	}
 	bot := lark.NewLarkBot(appID, appSecret)
 
 	ch := channel.New("standalone-lark", bot, factory, store)
