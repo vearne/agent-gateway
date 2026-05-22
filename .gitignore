@@ -33,3 +33,5 @@ go.work.sum
 
 .sisyphus/
 graphify-out/
+sessions-standalone/
+
