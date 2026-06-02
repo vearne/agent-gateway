@@ -15,13 +15,14 @@ type Config struct {
 }
 
 type ChannelConfig struct {
-	Name     string          `yaml:"name"`
-	Platform string          `yaml:"platform"`
-	Lark     *LarkConfig     `yaml:"lark,omitempty"`
-	Telegram *TelegramConfig `yaml:"telegram,omitempty"`
-	Discord  *DiscordConfig  `yaml:"discord,omitempty"`
-	Slack    *SlackConfig    `yaml:"slack,omitempty"`
-	WhatsApp *WhatsAppConfig `yaml:"whatsapp,omitempty"`
+	Name     string           `yaml:"name"`
+	Platform string           `yaml:"platform"`
+	Lark     *LarkConfig      `yaml:"lark,omitempty"`
+	Telegram *TelegramConfig  `yaml:"telegram,omitempty"`
+	Discord  *DiscordConfig   `yaml:"discord,omitempty"`
+	Slack    *SlackConfig     `yaml:"slack,omitempty"`
+	WhatsApp *WhatsAppConfig  `yaml:"whatsapp,omitempty"`
+	Weixin   *WeixinConfig    `yaml:"weixin,omitempty"`
 
 	Agent   *AgentConfig   `yaml:"agent,omitempty"`
 	Session *SessionConfig `yaml:"session,omitempty"`
@@ -48,6 +49,10 @@ type SlackConfig struct {
 }
 
 type WhatsAppConfig struct {
+	DataDir string `yaml:"data_dir"`
+}
+
+type WeixinConfig struct {
 	DataDir string `yaml:"data_dir"`
 }
 
@@ -114,6 +119,7 @@ func (c *Config) Validate() error {
 			}
 		case "whatsapp":
 			// WhatsApp config is optional — whatsmeow uses data_dir for session persistence
+		case "weixin":
 		default:
 			return fmt.Errorf("config: channel[%d] (%s) unsupported platform: %s", i, ch.Name, ch.Platform)
 		}
