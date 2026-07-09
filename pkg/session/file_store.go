@@ -11,6 +11,7 @@ import (
 
 	"github.com/vearne/agentscope-go/pkg/memory"
 	asSession "github.com/vearne/agentscope-go/pkg/session"
+	"go.uber.org/zap"
 )
 
 // FileStore persists sessions as JSON files on disk, organized by chatID subdirectory.
@@ -39,6 +40,10 @@ func NewFileStore(dir string) (*FileStore, error) {
 		kp := filepath.Join(dir, e.Name(), "keymap.json")
 		data, err := os.ReadFile(kp)
 		if err != nil {
+			if !os.IsNotExist(err) {
+				zap.L().Warn("session: read keymap failed, skipping",
+					zap.String("path", kp), zap.Error(err))
+			}
 			continue
 		}
 		var m map[string]string
@@ -69,7 +74,7 @@ func (s *FileStore) saveKeyMap(chatID string) {
 	m := map[string]string{chatID: s.keyMap[chatID]}
 	data, _ := json.Marshal(m)
 	if err := os.WriteFile(kp, data, 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "session: save key map %s: %v\n", kp, err)
+		zap.L().Warn("session: save key map failed", zap.String("path", kp), zap.Error(err))
 	}
 }
 

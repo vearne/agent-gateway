@@ -25,26 +25,26 @@ type WhatsAppBot struct {
 	handler func(ctx context.Context, msg adapter.InboundMessage)
 }
 
-func NewWhatsAppBot(dataDir string) *WhatsAppBot {
+func NewWhatsAppBot(dataDir string) (*WhatsAppBot, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		panic(fmt.Sprintf("whatsapp: create data dir: %v", err))
+		return nil, fmt.Errorf("whatsapp: create data dir: %w", err)
 	}
 
 	logger := waLog.Stdout("Database", "INFO", true)
 	container, err := sqlstore.New(context.Background(), "sqlite3", "file:"+dataDir+"/whatsmeow.db?_foreign_keys=on", logger)
 	if err != nil {
-		panic(fmt.Sprintf("whatsapp: create sqlstore: %v", err))
+		return nil, fmt.Errorf("whatsapp: create sqlstore: %w", err)
 	}
 
 	deviceStore, err := container.GetFirstDevice(context.Background())
 	if err != nil {
-		panic(fmt.Sprintf("whatsapp: get device: %v", err))
+		return nil, fmt.Errorf("whatsapp: get device: %w", err)
 	}
 
 	client := whatsmeow.NewClient(deviceStore, waLog.Stdout("Client", "INFO", true))
 	client.EnableAutoReconnect = true
 
-	return &WhatsAppBot{client: client}
+	return &WhatsAppBot{client: client}, nil
 }
 
 func (b *WhatsAppBot) Start(ctx context.Context) error {

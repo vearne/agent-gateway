@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/vearne/agentscope-go/pkg/memory"
 	asSession "github.com/vearne/agentscope-go/pkg/session"
+	"go.uber.org/zap"
 )
 
 // RedisStore persists sessions in Redis.
@@ -39,6 +41,10 @@ func (s *RedisStore) currentKey(chatID string) string {
 	if err == nil {
 		return val
 	}
+	if err != redis.Nil {
+		zap.L().Warn("redis: failed to get session key, using default",
+			zap.String("chat_id", chatID), zap.Error(err))
+	}
 	return chatID
 }
 
@@ -58,7 +64,7 @@ func (s *RedisStore) LoadSession(ctx context.Context, chatID string, mem memory.
 	}
 	err = sess.Load(ctx, mem)
 	if err != nil {
-		if err.Error() == "get from redis: redis: nil" {
+		if strings.Contains(err.Error(), "redis: nil") {
 			return nil
 		}
 		return err

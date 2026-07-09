@@ -19,15 +19,15 @@ type TelegramBot struct {
 	stop    chan struct{}
 }
 
-func NewTelegramBot(token string) *TelegramBot {
+func NewTelegramBot(token string) (*TelegramBot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
-		panic(fmt.Sprintf("telegram: create bot api: %v", err))
+		return nil, fmt.Errorf("telegram: create bot api: %w", err)
 	}
 	return &TelegramBot{
 		api:  api,
 		stop: make(chan struct{}),
-	}
+	}, nil
 }
 
 func (b *TelegramBot) Start(ctx context.Context) error {
