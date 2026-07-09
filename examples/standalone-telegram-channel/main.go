@@ -56,7 +56,10 @@ func main() {
 	if err != nil {
 		logger.Fatal("create session store", zap.Error(err))
 	}
-	bot := telegram.NewTelegramBot(token)
+	bot, err := telegram.NewTelegramBot(token)
+	if err != nil {
+		logger.Fatal("create telegram bot", zap.Error(err))
+	}
 
 	ch := channel.New("standalone-telegram", bot, factory, store)
 

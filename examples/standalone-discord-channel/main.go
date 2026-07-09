@@ -56,7 +56,10 @@ func main() {
 	if err != nil {
 		logger.Fatal("create session store", zap.Error(err))
 	}
-	bot := discord.NewDiscordBot(token)
+	bot, err := discord.NewDiscordBot(token)
+	if err != nil {
+		logger.Fatal("create discord bot", zap.Error(err))
+	}
 
 	ch := channel.New("standalone-discord", bot, factory, store)
 
