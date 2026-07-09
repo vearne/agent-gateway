@@ -19,6 +19,7 @@ import (
 	"github.com/vearne/agent-gateway/pkg/session"
 	"github.com/vearne/agent-gateway/pkg/slack"
 	"github.com/vearne/agent-gateway/pkg/telegram"
+	"github.com/vearne/agent-gateway/pkg/weixin"
 	"github.com/vearne/agent-gateway/pkg/whatsapp"
 )
 
@@ -96,6 +97,16 @@ func createBot(chCfg config.ChannelConfig) (adapter.BotAdapter, error) {
 			dataDir = chCfg.WhatsApp.DataDir
 		}
 		return whatsapp.NewWhatsAppBot(dataDir), nil
+	case "weixin":
+		dataDir := "./weixin-data"
+		if chCfg.Weixin != nil && chCfg.Weixin.DataDir != "" {
+			dataDir = chCfg.Weixin.DataDir
+		}
+		bot, err := weixin.NewWeixinBot(dataDir)
+		if err != nil {
+			return nil, err
+		}
+		return bot, nil
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", chCfg.Platform)
 	}
