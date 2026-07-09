@@ -5,6 +5,7 @@ import (
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 
@@ -12,14 +13,16 @@ import (
 )
 
 var _ adapter.BotAdapter = (*LarkBot)(nil)
+var _ adapter.HITLAdapter = (*LarkBot)(nil)
 
 type LarkBot struct {
-	appID     string
-	appSecret string
-	api       *lark.Client
-	handler   func(ctx context.Context, msg adapter.InboundMessage)
-	dedup     *MsgDedup
-	wsCancel  context.CancelFunc
+	appID             string
+	appSecret         string
+	api               *lark.Client
+	handler           func(ctx context.Context, msg adapter.InboundMessage)
+	cardActionHandler func(ctx context.Context, action adapter.CardAction)
+	dedup             *MsgDedup
+	wsCancel          context.CancelFunc
 }
 
 func NewLarkBot(appID, appSecret string) *LarkBot {
@@ -36,7 +39,10 @@ func (b *LarkBot) Start(ctx context.Context) error {
 	b.wsCancel = cancel
 
 	dispatcher := dispatcher.NewEventDispatcher("", "").
-		OnP2MessageReceiveV1(b.onEvent)
+		OnP2MessageReceiveV1(b.onEvent).
+		OnP2CardActionTrigger(func(ctx context.Context, event *callback.CardActionTriggerEvent) (*callback.CardActionTriggerResponse, error) {
+			return b.onCardActionEvent(ctx, event)
+		})
 
 	wsClient := larkws.NewClient(
 		b.appID,
@@ -119,6 +125,60 @@ func (b *LarkBot) onEvent(ctx context.Context, event *larkim.P2MessageReceiveV1)
 		})
 	}
 	return nil
+}
+
+func (b *LarkBot) SendHITLCard(ctx context.Context, parentMsgID string, payload adapter.HITLPayload) (string, error) {
+	cardJSON := BuildHITLCard(payload)
+	return sendCardReply(ctx, b.api, parentMsgID, cardJSON)
+}
+
+func (b *LarkBot) OnCardAction(handler func(ctx context.Context, action adapter.CardAction)) {
+	b.cardActionHandler = handler
+}
+
+func (b *LarkBot) onCardActionEvent(ctx context.Context, event *callback.CardActionTriggerEvent) (*callback.CardActionTriggerResponse, error) {
+	if event == nil || event.Event == nil || event.Event.Action == nil {
+		return nil, nil
+	}
+
+	action := event.Event.Action
+	cardMsgID := ""
+	chatID := ""
+	if event.Event.Context != nil {
+		cardMsgID = event.Event.Context.OpenMessageID
+		chatID = event.Event.Context.OpenChatID
+	}
+
+	act := ""
+	values := make(map[string]string)
+	if action.Value != nil {
+		if v, ok := action.Value["action"]; ok {
+			if s, ok := v.(string); ok {
+				act = s
+			}
+		}
+		for k, v := range action.FormValue {
+			if s, ok := v.(string); ok {
+				values[k] = s
+			}
+		}
+	}
+
+	if b.cardActionHandler != nil {
+		b.cardActionHandler(ctx, adapter.CardAction{
+			CardMsgID: cardMsgID,
+			ChatID:    chatID,
+			Action:    act,
+			Values:    values,
+		})
+	}
+
+	return &callback.CardActionTriggerResponse{
+		Toast: &callback.Toast{
+			Type:    "success",
+			Content: "处理中...",
+		},
+	}, nil
 }
 
 func convertFromAdapterTools(tools []adapter.ToolEntry) []ToolEntry {

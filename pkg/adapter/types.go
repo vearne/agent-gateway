@@ -60,3 +60,27 @@ type ToolEntry struct {
 	Result string
 	Done   bool
 }
+
+// HITLPayload carries tool approval request info for display.
+type HITLPayload struct {
+	ToolName string
+	ToolID   string
+	Args     map[string]any
+}
+
+// CardAction represents a user's interaction with an interactive card.
+type CardAction struct {
+	CardMsgID string            // The message ID of the card
+	ChatID    string            // The chat where the card was shown
+	Action    string            // "approve", "reject", "edit"
+	Values    map[string]string // form values (e.g., edited args, reject reason)
+}
+
+// HITLAdapter is optionally implemented by bots that support HITL card actions.
+// Bots that don't support interactive cards simply don't implement this interface.
+type HITLAdapter interface {
+	// SendHITLCard sends an interactive approval card and returns the card message ID.
+	SendHITLCard(ctx context.Context, parentMsgID string, payload HITLPayload) (cardMsgID string, err error)
+	// OnCardAction registers a handler for card action callbacks (button clicks, form submits).
+	OnCardAction(handler func(ctx context.Context, action CardAction))
+}
