@@ -63,6 +63,7 @@ type AgentConfig struct {
 	SystemPrompt     string `yaml:"system_prompt"`
 	MaxIters         int    `yaml:"max_iters"`
 	MaxContextTokens int    `yaml:"max_context_tokens"`
+	ToolApproval     bool   `yaml:"tool_approval"`
 }
 
 type SessionConfig struct {
@@ -124,6 +125,12 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("config: channel[%d] (%s) unsupported platform: %s", i, ch.Name, ch.Platform)
 		}
 	}
+	if c.Agent.ModelName == "" {
+		return fmt.Errorf("config: agent.model_name is required")
+	}
+	if c.Agent.APIKey == "" {
+		return fmt.Errorf("config: agent.api_key is required (or set AGENT_API_KEY env var)")
+	}
 	return nil
 }
 
@@ -151,6 +158,9 @@ func (ch *ChannelConfig) EffectiveAgent(global AgentConfig) AgentConfig {
 	}
 	if ch.Agent.MaxContextTokens != 0 {
 		merged.MaxContextTokens = ch.Agent.MaxContextTokens
+	}
+	if ch.Agent.ToolApproval {
+		merged.ToolApproval = true
 	}
 	return merged
 }

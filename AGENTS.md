@@ -82,7 +82,7 @@ pkg/
 ## Gotchas
 
 - **Go 1.25+** required (per go.mod).
-- **No test files exist yet** — all 18 `.go` files are source code only.
+- **Tests** cover HITL broker (`pkg/channel/approval_broker_test.go`), Lark card rendering and truncation (`pkg/lark/card_test.go`), and Lark HITL card builder/parser (`pkg/lark/hitl_test.go`). Run with `go test -race ./...`.
 - **WhatsApp** requires QR code scan on first run; stores session in SQLite under `data_dir`.
-- **Telegram** `NewTelegramBot()` panics on token creation failure (not returnable error).
-- **Discord/Telegram/WhatsApp** bots panic in constructors on initialization failure — this is intentional for fail-fast startup.
+- **All bot constructors** (`Telegram`, `Discord`, `WhatsApp`) return `(*Bot, error)` — no panics. Caller is responsible for error handling.
+- **HITL** (Human-in-the-Loop): Set `tool_approval: true` in channel config to enable interactive tool approval cards (Lark only). Uses `ApprovalBroker` with 24h timeout; see `pkg/channel/approval_broker.go`.

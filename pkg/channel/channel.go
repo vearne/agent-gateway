@@ -10,6 +10,7 @@ import (
 
 	"github.com/vearne/agentscope-go/pkg/memory"
 	"github.com/vearne/agentscope-go/pkg/message"
+	agentscope "github.com/vearne/agentscope-go/pkg/agent"
 	"go.uber.org/zap"
 
 	"github.com/vearne/agent-gateway/pkg/adapter"
@@ -20,7 +21,15 @@ type Channel struct {
 	bot     adapter.BotAdapter
 	factory adapter.AgentFactory
 	store   adapter.SessionStore
-	locks   sync.Map
+	broker  *ApprovalBroker
+	// locks provides per-chatID serialization. Entries persist for the lifetime
+	// of the channel (one per unique chatID), which is bounded by the number of
+	// active conversations. For high-cardinality scenarios, consider a bounded
+	// cache. We intentionally do NOT delete entries after use: deleting from a
+	// sync.Map between Unlock and Delete races with a concurrent LoadOrStore,
+	// which can hand out a stale (deleted) mutex to a third caller while a
+	// previous holder is still between Unlock and Delete.
+	locks sync.Map
 	cancel  context.CancelFunc
 }
 
@@ -38,6 +47,15 @@ func (ch *Channel) Start(ctx context.Context) {
 
 	ch.bot.OnMessage(ch.handleMessage)
 
+	if ch.broker != nil {
+		if hitlBot, ok := ch.bot.(adapter.HITLAdapter); ok {
+			hitlBot.OnCardAction(ch.handleCardAction)
+		} else {
+			zap.L().Warn("HITL enabled but bot does not support card actions",
+				zap.String("channel", ch.name))
+		}
+	}
+
 	go func() {
 		if err := ch.bot.Start(ctx); err != nil && ctx.Err() == nil {
 			zap.L().Error("bot stopped unexpectedly",
@@ -49,6 +67,51 @@ func (ch *Channel) Start(ctx context.Context) {
 func (ch *Channel) Stop() {
 	if ch.cancel != nil {
 		ch.cancel()
+	}
+}
+
+func (ch *Channel) EnableHITL(broker *ApprovalBroker) {
+	ch.broker = broker
+}
+
+func (ch *Channel) handleCardAction(ctx context.Context, action adapter.CardAction) {
+	if ch.broker == nil {
+		return
+	}
+	decision := parseCardAction(action)
+	if ok := ch.broker.Resolve(action.CardMsgID, decision); !ok {
+		zap.L().Debug("card action for unknown/expired approval",
+			zap.String("card_msg_id", action.CardMsgID),
+			zap.String("action", action.Action))
+	}
+}
+
+func parseCardAction(action adapter.CardAction) agentscope.ToolApprovalDecision {
+	switch action.Action {
+	case "reject":
+		reason := action.Values["reason"]
+		if reason == "" {
+			reason = "rejected by user"
+		}
+		return agentscope.ToolApprovalDecision{
+			Type:   agentscope.ToolDecisionReject,
+			Reason: reason,
+		}
+	case "edit":
+		var edited map[string]any
+		if argsJSON := action.Values["args"]; argsJSON != "" {
+			if err := json.Unmarshal([]byte(argsJSON), &edited); err != nil {
+				zap.L().Warn("failed to parse edited args, approving with original",
+					zap.String("args", argsJSON), zap.Error(err))
+				return agentscope.ToolApprovalDecision{Type: agentscope.ToolDecisionApprove}
+			}
+		}
+		return agentscope.ToolApprovalDecision{
+			Type:       agentscope.ToolDecisionEdit,
+			EditedArgs: edited,
+		}
+	default:
+		return agentscope.ToolApprovalDecision{Type: agentscope.ToolDecisionApprove}
 	}
 }
 
@@ -81,13 +144,33 @@ func (ch *Channel) handleMessage(ctx context.Context, msg adapter.InboundMessage
 		}
 	}
 
-	go ch.processReply(ctx, msg)
+	go ch.safeProcessReply(ctx, msg)
+}
+
+// safeProcessReply wraps processReply with panic recovery so a panic in the
+// agent or bot never crashes the whole gateway process.
+func (ch *Channel) safeProcessReply(ctx context.Context, msg adapter.InboundMessage) {
+	defer func() {
+		if r := recover(); r != nil {
+			zap.L().Error("panic in processReply",
+				zap.String("channel", ch.name),
+				zap.String("chat_id", msg.ChatID),
+				zap.String("msg_id", msg.MsgID),
+				zap.Any("panic", r))
+		}
+	}()
+	ch.processReply(ctx, msg)
 }
 
 func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage) {
 	// Detach from the bot callback ctx so a short-lived event context does not
 	// cancel the agent stream or session save mid-reply.
 	ctx = context.WithoutCancel(ctx)
+	// Add a max processing timeout so a stuck agent doesn't hold the chat
+	// lock forever. When the timeout fires, the context expires, the agent
+	// stream channel closes, and the per-chat lock is released.
+	ctx, cancelReply := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancelReply()
 
 	mu := ch.getLock(msg.ChatID)
 	mu.Lock()
@@ -151,6 +234,8 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 	var lastStreamState string
 	var finalResp *message.Msg
 	cardState := newStreamCardState()
+	var consecutiveCardErrors int
+	const maxCardErrors = 3
 
 	for streamMsg := range streamCh {
 		// 去重优化：如果队列中还有更新的请求就跳过
@@ -178,9 +263,34 @@ func (ch *Channel) processReply(ctx context.Context, msg adapter.InboundMessage)
 		}
 		lastUpdate = time.Now()
 		if updateErr := ch.bot.UpdateCard(ctx, cardMsgID, card); updateErr != nil {
+			consecutiveCardErrors++
 			zap.L().Warn("update card during stream failed",
+				zap.String("msg_id", cardMsgID),
+				zap.Int("consecutive_errors", consecutiveCardErrors),
+				zap.Error(updateErr))
+			if consecutiveCardErrors >= maxCardErrors {
+				zap.L().Warn("stopping card updates after repeated failures, falling back to text",
+					zap.String("msg_id", cardMsgID))
+				break
+			}
+		} else {
+			consecutiveCardErrors = 0
+		}
+	}
+
+	if consecutiveCardErrors >= maxCardErrors {
+		if updateErr := ch.bot.UpdateCard(ctx, cardMsgID, adapter.CardContent{
+			Text:      "⚠️ 回复内容过长，卡片更新失败。完整回复已保存到会话中。",
+			Streaming: false,
+		}); updateErr != nil {
+			zap.L().Warn("fallback card update also failed",
 				zap.String("msg_id", cardMsgID), zap.Error(updateErr))
 		}
+		if saveErr := ch.store.SaveSession(ctx, msg.ChatID, agent.Memory()); saveErr != nil {
+			zap.L().Error("save session failed",
+				zap.String("chat_id", msg.ChatID), zap.Error(saveErr))
+		}
+		return
 	}
 
 	// Final card update: remove streaming cursor

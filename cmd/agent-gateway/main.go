@@ -27,7 +27,11 @@ func main() {
 	configPath := flag.String("config", "config.yaml", "path to config file")
 	flag.Parse()
 
-	logger, _ := zap.NewProduction()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to init zap logger: %v\n", err)
+		logger = zap.NewNop()
+	}
 	defer func() { _ = logger.Sync() }()
 	zap.ReplaceGlobals(logger)
 
@@ -50,7 +54,28 @@ func main() {
 		}
 
 		agentCfg := chCfg.EffectiveAgent(cfg.Agent)
-		factory := agent.NewFactory(agentCfg)
+
+		var broker *channel.ApprovalBroker
+		var factory adapter.AgentFactory
+		if agentCfg.ToolApproval {
+			broker = channel.NewApprovalBroker()
+		}
+
+		if broker != nil {
+			hitlBot, ok := bot.(adapter.HITLAdapter)
+			if ok {
+				approvalFn := broker.MakeToolApprovalFunc(hitlBot)
+				factory = agent.NewFactory(agentCfg, agent.WithToolApproval(approvalFn))
+			} else {
+				logger.Warn("tool_approval enabled but bot does not support HITL, disabling",
+					zap.String("channel", chCfg.Name),
+					zap.String("platform", chCfg.Platform))
+				factory = agent.NewFactory(agentCfg)
+				broker = nil
+			}
+		} else {
+			factory = agent.NewFactory(agentCfg)
+		}
 
 		sessionCfg := chCfg.EffectiveSession(cfg.Session)
 		store, err := createStore(sessionCfg)
@@ -61,6 +86,9 @@ func main() {
 		}
 
 		ch := channel.New(chCfg.Name, bot, factory, store)
+		if broker != nil {
+			ch.EnableHITL(broker)
+		}
 		mgr.Add(ch)
 	}
 
@@ -86,9 +114,17 @@ func createBot(chCfg config.ChannelConfig) (adapter.BotAdapter, error) {
 	case "lark":
 		return lark.NewLarkBot(chCfg.Lark.AppID, chCfg.Lark.AppSecret), nil
 	case "telegram":
-		return telegram.NewTelegramBot(chCfg.Telegram.Token), nil
+		bot, err := telegram.NewTelegramBot(chCfg.Telegram.Token)
+		if err != nil {
+			return nil, err
+		}
+		return bot, nil
 	case "discord":
-		return discord.NewDiscordBot(chCfg.Discord.Token), nil
+		bot, err := discord.NewDiscordBot(chCfg.Discord.Token)
+		if err != nil {
+			return nil, err
+		}
+		return bot, nil
 	case "slack":
 		return slack.NewSlackBot(chCfg.Slack.BotToken, chCfg.Slack.AppToken), nil
 	case "whatsapp":
@@ -96,7 +132,7 @@ func createBot(chCfg config.ChannelConfig) (adapter.BotAdapter, error) {
 		if chCfg.WhatsApp != nil && chCfg.WhatsApp.DataDir != "" {
 			dataDir = chCfg.WhatsApp.DataDir
 		}
-		return whatsapp.NewWhatsAppBot(dataDir), nil
+		return whatsapp.NewWhatsAppBot(dataDir)
 	case "weixin":
 		dataDir := "./weixin-data"
 		if chCfg.Weixin != nil && chCfg.Weixin.DataDir != "" {

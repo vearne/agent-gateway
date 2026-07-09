@@ -10,12 +10,25 @@ import (
 	"github.com/vearne/agentscope-go/pkg/tool"
 )
 
-type Factory struct {
-	cfg config.AgentConfig
+// FactoryOption configures a Factory or ToolKitFactory.
+type FactoryOption func(*Factory)
+
+// WithToolApproval injects a tool approval callback into the factory.
+func WithToolApproval(fn agentscope.ToolApprovalFunc) FactoryOption {
+	return func(f *Factory) { f.toolApproval = fn }
 }
 
-func NewFactory(cfg config.AgentConfig) *Factory {
-	return &Factory{cfg: cfg}
+type Factory struct {
+	cfg          config.AgentConfig
+	toolApproval agentscope.ToolApprovalFunc
+}
+
+func NewFactory(cfg config.AgentConfig, opts ...FactoryOption) *Factory {
+	f := &Factory{cfg: cfg}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 func (f *Factory) Create() adapter.Agent {
@@ -23,7 +36,7 @@ func (f *Factory) Create() adapter.Agent {
 	fmt := formatter.NewOpenAIChatFormatter()
 	mem := memory.NewInMemoryMemory()
 
-	return agentscope.NewDeepAgent(
+	deepOpts := []agentscope.DeepOption{
 		agentscope.WithDeepName("agent-gateway"),
 		agentscope.WithDeepModel(m),
 		agentscope.WithDeepFormatter(fmt),
@@ -31,18 +44,29 @@ func (f *Factory) Create() adapter.Agent {
 		agentscope.WithDeepSystemPrompt(f.cfg.SystemPrompt),
 		agentscope.WithDeepMaxIters(f.cfg.MaxIters),
 		agentscope.WithDeepMaxContextTokens(f.cfg.MaxContextTokens),
-	)
+	}
+	if f.toolApproval != nil {
+		deepOpts = append(deepOpts, agentscope.WithDeepToolApproval(f.toolApproval))
+	}
+	return agentscope.NewDeepAgent(deepOpts...)
 }
 
 type ToolKitFactory struct {
-	cfg     config.AgentConfig
-	toolkit *tool.Toolkit
+	cfg          config.AgentConfig
+	toolkit      *tool.Toolkit
+	toolApproval agentscope.ToolApprovalFunc
 }
 
-func NewToolKitFactory(cfg config.AgentConfig, toolkit *tool.Toolkit) *ToolKitFactory {
-	tf := new(ToolKitFactory)
-	tf.cfg = cfg
-	tf.toolkit = toolkit
+func NewToolKitFactory(cfg config.AgentConfig, toolkit *tool.Toolkit, opts ...FactoryOption) *ToolKitFactory {
+	f := &Factory{cfg: cfg}
+	for _, opt := range opts {
+		opt(f)
+	}
+	tf := &ToolKitFactory{
+		cfg:          f.cfg,
+		toolkit:      toolkit,
+		toolApproval: f.toolApproval,
+	}
 	return tf
 }
 
@@ -51,7 +75,7 @@ func (f *ToolKitFactory) Create() adapter.Agent {
 	fmt := formatter.NewOpenAIChatFormatter()
 	mem := memory.NewInMemoryMemory()
 
-	return agentscope.NewDeepAgent(
+	deepOpts := []agentscope.DeepOption{
 		agentscope.WithDeepName("agent-gateway"),
 		agentscope.WithDeepModel(m),
 		agentscope.WithDeepFormatter(fmt),
@@ -60,5 +84,9 @@ func (f *ToolKitFactory) Create() adapter.Agent {
 		agentscope.WithDeepMaxIters(f.cfg.MaxIters),
 		agentscope.WithDeepMaxContextTokens(f.cfg.MaxContextTokens),
 		agentscope.WithDeepToolkit(f.toolkit),
-	)
+	}
+	if f.toolApproval != nil {
+		deepOpts = append(deepOpts, agentscope.WithDeepToolApproval(f.toolApproval))
+	}
+	return agentscope.NewDeepAgent(deepOpts...)
 }

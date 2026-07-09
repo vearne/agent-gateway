@@ -8,7 +8,12 @@ import (
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
+	"go.uber.org/zap"
 )
+
+// maxCardBytes is the safety limit for Lark interactive card JSON.
+// Lark's hard limit is 28KB; we leave 1KB margin.
+const maxCardBytes = 27000
 
 type ToolEntry struct {
 	Name   string
@@ -69,6 +74,17 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+func truncateWithLog(s string, maxLen int, label string) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	zap.L().Info("card content truncated",
+		zap.String("label", label),
+		zap.Int("original_len", len(s)),
+		zap.Int("truncated_len", maxLen))
+	return s[:maxLen] + "\n\n[...内容过长，已截断]"
 }
 
 func thinkingPanel(thinking string, expanded bool) cardElement {
@@ -169,7 +185,7 @@ func BuildCard(tools []ToolEntry, thinking, responseText string, streaming bool)
 		elems = append(elems, toolsPanel(tools, streaming))
 	}
 
-	text := SanitizeCardContent(responseText)
+	text := truncateWithLog(SanitizeCardContent(responseText), 20000, "response_text")
 	if streaming {
 		text += "▌"
 	}
@@ -201,7 +217,32 @@ func BuildCard(tools []ToolEntry, thinking, responseText string, streaming bool)
 	}
 
 	data, _ := json.Marshal(card)
+	if len(data) > maxCardBytes {
+		zap.L().Warn("card JSON exceeds Lark limit, applying aggressive truncation",
+			zap.Int("json_size", len(data)),
+			zap.Int("limit", maxCardBytes))
+		text = truncateWithLog(text, 3000, "response_text_compact")
+		card.Body.Elements = rebuildElementsCompact(thinking, text, tools, streaming)
+		data, _ = json.Marshal(card)
+	}
 	return string(data)
+}
+
+func rebuildElementsCompact(thinking, text string, tools []ToolEntry, streaming bool) []cardElement {
+	var elems []cardElement
+	if thinking != "" {
+		elems = append(elems, thinkingPanel(truncate(thinking, 500), false))
+	}
+	if len(tools) > 0 {
+		elems = append(elems, toolsPanel(tools, false))
+	}
+	if streaming {
+		text += "▌"
+	}
+	if text != "" {
+		elems = append(elems, cardElement{Tag: "markdown", Content: text})
+	}
+	return elems
 }
 
 func PatchCard(ctx context.Context, larkAPI *lark.Client, messageID, cardJSON string) error {

@@ -53,7 +53,10 @@ func main() {
 		logger.Fatal("create session store", zap.Error(err))
 	}
 	dataDir := envOr("WHATSAPP_DATA_DIR", "./data/whatsapp-standalone")
-	bot := whatsapp.NewWhatsAppBot(dataDir)
+	bot, err := whatsapp.NewWhatsAppBot(dataDir)
+	if err != nil {
+		logger.Fatal("create whatsapp bot", zap.Error(err))
+	}
 
 	ch := channel.New("standalone-whatsapp", bot, factory, store)
 

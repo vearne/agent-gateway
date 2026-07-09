@@ -14,16 +14,16 @@ type DiscordBot struct {
 	handler  func(ctx context.Context, msg adapter.InboundMessage)
 }
 
-func NewDiscordBot(token string) *DiscordBot {
+func NewDiscordBot(token string) (*DiscordBot, error) {
 	if !strings.HasPrefix(token, "Bot ") {
 		token = "Bot " + token
 	}
 	dg, err := discordgo.New(token)
 	if err != nil {
-		panic(fmt.Sprintf("failed to create Discord session: %v", err))
+		return nil, fmt.Errorf("discord: create session: %w", err)
 	}
 	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuilds
-	return &DiscordBot{dg: dg}
+	return &DiscordBot{dg: dg}, nil
 }
 
 func (b *DiscordBot) Start(ctx context.Context) error {
